@@ -6,13 +6,16 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ChartBarIcon,
+  GearSixIcon,
+  ReceiptIcon,
   ShoppingCartIcon,
   SignOutIcon,
   TagIcon,
+  UsersIcon,
   WalletIcon,
 } from "@phosphor-icons/react";
 import { useHydrated } from "@/lib/store";
-import { useOpenSession } from "@/lib/selectors";
+import { useCashSession } from "@/commerce/cash/hooks";
 import { canAccess, type AppSection } from "@/core/auth/access";
 import { signOut } from "@/core/auth/auth-client";
 import { BusinessBadge } from "./business-badge";
@@ -34,9 +37,12 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/pos", label: "Vender", icon: ShoppingCartIcon, section: "pos" },
+  { href: "/ventas", label: "Ventas", icon: ReceiptIcon, section: "ventas" },
   { href: "/productos", label: "Productos", icon: TagIcon, section: "productos" },
   { href: "/caja", label: "Caja", icon: WalletIcon, section: "caja" },
   { href: "/reportes", label: "Reportes", icon: ChartBarIcon, section: "reportes" },
+  { href: "/usuarios", label: "Usuarios", icon: UsersIcon, section: "usuarios" },
+  { href: "/ajustes", label: "Ajustes", icon: GearSixIcon, section: "settings" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -53,7 +59,8 @@ export function AppShell({
   useApplyTheme();
   const hydrated = useHydrated();
   const pathname = usePathname();
-  const openSession = useOpenSession();
+  const cash = useCashSession();
+  const openSession = !!cash.data;
   const router = useRouter();
 
   const nav = NAV.filter((item) => canAccess(user.role, item.section));

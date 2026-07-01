@@ -46,7 +46,7 @@ export class CashRepository extends BaseRepository {
       _sum: { amount: true },
       where: {
         method: "EFECTIVO",
-        sale: { organizationId: this.organizationId, cashSessionId },
+        sale: { organizationId: this.organizationId, cashSessionId, status: "COMPLETED" },
       },
     });
     return Number(res._sum.amount ?? 0);

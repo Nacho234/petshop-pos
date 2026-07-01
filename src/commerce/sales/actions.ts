@@ -1,6 +1,6 @@
 "use server";
 
-import { assertAccess } from "@/core/auth/session";
+import { assertAccess, requireAuth } from "@/core/auth/session";
 import * as service from "./service";
 import type { CreateSaleInput } from "./schemas";
 
@@ -20,4 +20,17 @@ export async function listSalesAction(days: number) {
 export async function getSaleForTicketAction(id: string) {
   await assertAccess("ventas");
   return service.getSaleForTicket(id);
+}
+
+// Historial de ventas: ADMIN y EMPLEADO (sección "ventas").
+export async function listRecentSalesAction(limit?: number) {
+  await assertAccess("ventas");
+  return service.listRecentSales(limit);
+}
+
+// Anular una venta: sólo ADMIN (es una operación sensible).
+export async function cancelSaleAction(id: string) {
+  const user = await requireAuth();
+  if (user.role !== "ADMIN") throw new Error("Sólo un administrador puede anular ventas.");
+  return service.cancelSale(id, user.id);
 }

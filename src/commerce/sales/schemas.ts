@@ -36,9 +36,12 @@ export const createSaleSchema = z.object({
 
 export type CreateSaleInput = z.infer<typeof createSaleSchema>;
 
+export type SaleStatus = "COMPLETED" | "CANCELLED";
+
 export type SaleDTO = {
   id: string;
   number: number;
+  status: SaleStatus;
   subtotal: number;
   discount: number;
   total: number;
