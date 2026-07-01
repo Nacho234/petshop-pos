@@ -2,16 +2,16 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Caja · Punto de venta",
-    short_name: "Caja",
+    name: "Zafari · Punto de venta",
+    short_name: "Zafari",
     description:
-      "Punto de venta multinegocio: vendé, cobrá, controlá stock y caja.",
+      "Punto de venta de Zafari: vendé, cobrá, controlá stock y caja.",
     start_url: "/pos",
     scope: "/",
     display: "standalone",
     orientation: "any",
-    background_color: "#f1f5f9",
-    theme_color: "#2563eb",
+    background_color: "#faf6ee",
+    theme_color: "#2e7d5b",
     categories: ["business", "productivity", "finance"],
     lang: "es-AR",
     icons: [

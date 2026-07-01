@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ChartBarIcon,
-  ReceiptIcon,
   ShoppingCartIcon,
   TagIcon,
   WalletIcon,
@@ -42,11 +42,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (!hydrated) {
     return (
       <div className="grid min-h-dvh place-items-center bg-bg">
-        <div className="flex flex-col items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-accent text-accent-fg">
-            <ReceiptIcon size={26} weight="fill" />
-          </div>
-          <p className="text-sm font-medium text-fg-subtle">Cargando Caja…</p>
+        <div className="flex flex-col items-center gap-4">
+          <Image
+            src="/logo.png"
+            alt="Zafari"
+            width={606}
+            height={275}
+            priority
+            className="h-14 w-auto animate-pulse"
+          />
+          <p className="text-sm font-medium text-fg-subtle">Cargando…</p>
         </div>
       </div>
     );
@@ -56,11 +61,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh lg:flex">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-border bg-surface px-3 py-4 lg:flex">
-        <div className="flex items-center gap-2 px-1 pb-4">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-fg">
-            <ReceiptIcon size={19} weight="fill" />
-          </span>
-          <span className="font-display text-lg font-bold text-fg">Caja</span>
+        <div className="flex items-center px-1 pb-4">
+          <Image
+            src="/logo.png"
+            alt="Zafari"
+            width={606}
+            height={275}
+            priority
+            className="h-9 w-auto"
+          />
         </div>
 
         <BusinessBadge />

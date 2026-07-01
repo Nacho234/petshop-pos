@@ -35,7 +35,7 @@ function p(
 
 export function seed(): SeedData {
   const business: Business = {
-    name: "Pet Shop",
+    name: "Zafari",
     legalName: "",
     taxId: "",
     address: "",

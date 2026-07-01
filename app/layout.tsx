@@ -1,36 +1,36 @@
 import type { Metadata, Viewport } from "next";
-import { Rubik, Nunito_Sans } from "next/font/google";
+import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ServiceWorker } from "@/components/service-worker";
 import { ThemeScript } from "@/components/theme-script";
 
-const rubik = Rubik({
-  variable: "--font-rubik",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   display: "swap",
 });
 
-const nunito = Nunito_Sans({
-  variable: "--font-nunito",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  applicationName: "Caja",
+  applicationName: "Zafari Caja",
   title: {
-    default: "Caja · Punto de venta",
-    template: "%s · Caja",
+    default: "Zafari · Punto de venta",
+    template: "%s · Zafari",
   },
   description:
-    "Punto de venta multinegocio: vendé, cobrá, controlá stock y caja desde cualquier dispositivo.",
+    "Punto de venta de Zafari: vendé, cobrá, controlá stock y caja desde cualquier dispositivo.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Caja",
+    title: "Zafari",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
@@ -43,8 +43,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f1f5f9" },
-    { media: "(prefers-color-scheme: dark)", color: "#020617" },
+    { media: "(prefers-color-scheme: light)", color: "#faf6ee" },
+    { media: "(prefers-color-scheme: dark)", color: "#17160f" },
   ],
 };
 
@@ -52,7 +52,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={`${rubik.variable} ${nunito.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`${outfit.variable} ${jakarta.variable}`} suppressHydrationWarning>
       <head>
         <ThemeScript />
       </head>

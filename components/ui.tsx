@@ -7,6 +7,7 @@ import {
   type SelectHTMLAttributes,
   useEffect,
 } from "react";
+import { createPortal } from "react-dom";
 import { XIcon } from "@phosphor-icons/react";
 
 export function cx(...parts: Array<string | false | null | undefined>) {
@@ -225,10 +226,10 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
       <div
         className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
         onClick={onClose}
@@ -261,6 +262,7 @@ export function Modal({
         )}
       </div>
       <style>{`@keyframes modal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}`}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
