@@ -2,42 +2,67 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ChartBarIcon,
   ShoppingCartIcon,
+  SignOutIcon,
   TagIcon,
   WalletIcon,
 } from "@phosphor-icons/react";
 import { useHydrated } from "@/lib/store";
 import { useOpenSession } from "@/lib/selectors";
+import { canAccess, type AppSection } from "@/core/auth/access";
+import { signOut } from "@/core/auth/auth-client";
 import { BusinessBadge } from "./business-badge";
 import { ThemeSwitch, ThemeToggle, useApplyTheme } from "./theme-toggle";
 import { cx } from "./ui";
+
+export interface ShellUser {
+  name: string;
+  email: string;
+  role: string;
+}
 
 interface NavItem {
   href: string;
   label: string;
   icon: typeof ShoppingCartIcon;
+  section: AppSection;
 }
 
 const NAV: NavItem[] = [
-  { href: "/pos", label: "Vender", icon: ShoppingCartIcon },
-  { href: "/productos", label: "Productos", icon: TagIcon },
-  { href: "/caja", label: "Caja", icon: WalletIcon },
-  { href: "/reportes", label: "Reportes", icon: ChartBarIcon },
+  { href: "/pos", label: "Vender", icon: ShoppingCartIcon, section: "pos" },
+  { href: "/productos", label: "Productos", icon: TagIcon, section: "productos" },
+  { href: "/caja", label: "Caja", icon: WalletIcon, section: "caja" },
+  { href: "/reportes", label: "Reportes", icon: ChartBarIcon, section: "reportes" },
 ];
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  user,
+}: {
+  children: ReactNode;
+  user: ShellUser;
+}) {
   useApplyTheme();
   const hydrated = useHydrated();
   const pathname = usePathname();
   const openSession = useOpenSession();
+  const router = useRouter();
+
+  const nav = NAV.filter((item) => canAccess(user.role, item.section));
+
+  async function handleSignOut() {
+    await signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   if (!hydrated) {
     return (
@@ -75,7 +100,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <BusinessBadge />
 
         <nav className="mt-4 flex flex-1 flex-col gap-1">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
             return (
@@ -103,9 +128,24 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-border pt-3">
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
           <ThemeSwitch />
-          <p className="mt-1 px-1 text-xs text-fg-subtle">Sin conexión a DB · local</p>
+          <div className="flex items-center gap-2 px-1">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-fg">{user.name}</p>
+              <p className="truncate text-xs text-fg-subtle">
+                {user.role === "ADMIN" ? "Administrador" : "Empleado"}
+              </p>
+            </div>
+            <button
+              onClick={handleSignOut}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+              className="grid h-9 w-9 place-items-center rounded-lg text-fg-muted hover:bg-surface-2 hover:text-fg"
+            >
+              <SignOutIcon size={20} />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -115,6 +155,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <BusinessBadge />
         </div>
         <ThemeToggle />
+        <button
+          onClick={handleSignOut}
+          aria-label="Cerrar sesión"
+          className="grid h-9 w-9 place-items-center rounded-lg text-fg-muted hover:bg-surface-2 hover:text-fg"
+        >
+          <SignOutIcon size={20} />
+        </button>
       </header>
 
       {/* Main */}
@@ -123,8 +170,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-        {NAV.map((item) => {
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}
+      >
+        {nav.map((item) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
           return (
