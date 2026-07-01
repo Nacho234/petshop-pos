@@ -1,125 +1,73 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ArchiveIcon,
   MagnifyingGlassIcon,
   PencilSimpleIcon,
   PlusIcon,
+  SlidersHorizontalIcon,
   TagIcon,
 } from "@phosphor-icons/react";
-import { useStore } from "@/lib/store";
-import { useCategories, useCurrency, useProducts } from "@/lib/selectors";
+
+import { Badge, Button, EmptyState, Select } from "@/components/ui";
 import { formatMoney } from "@/lib/format";
-import type { Product } from "@/lib/types";
-import {
-  Badge,
-  Button,
-  EmptyState,
-  Field,
-  Input,
-  Modal,
-  Select,
-} from "@/components/ui";
+import { useCategories } from "@/commerce/categories/hooks";
+import { useBrands } from "@/commerce/brands/hooks";
+import { useProducts } from "@/commerce/products/hooks";
+import type { ProductDTO, ProductSort } from "@/commerce/products/schemas";
+import { ProductFormModal } from "@/commerce/products/components/product-form-modal";
+import { TaxonomyModal } from "@/commerce/products/components/taxonomy-modal";
 
-const LOW_STOCK = 5;
-
-interface FormState {
-  name: string;
-  sku: string;
-  price: string;
-  cost: string;
-  stock: string;
-  trackStock: boolean;
-  categoryId: string;
-}
-
-const emptyForm: FormState = {
-  name: "",
-  sku: "",
-  price: "",
-  cost: "",
-  stock: "0",
-  trackStock: true,
-  categoryId: "",
-};
+const PAGE_SIZE = 20;
 
 export default function ProductsPage() {
-  const products = useProducts();
-  const categories = useCategories();
-  const currency = useCurrency();
-  const addProduct = useStore((s) => s.addProduct);
-  const updateProduct = useStore((s) => s.updateProduct);
-  const archiveProduct = useStore((s) => s.archiveProduct);
-  const addCategory = useStore((s) => s.addCategory);
-
+  const [rawQuery, setRawQuery] = useState("");
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [newCat, setNewCat] = useState("");
-  const [archiving, setArchiving] = useState<Product | null>(null);
+  const [categoryId, setCategoryId] = useState("");
+  const [brandId, setBrandId] = useState("");
+  const [sort, setSort] = useState<ProductSort>("name");
+  const [page, setPage] = useState(1);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) || (p.sku ?? "").toLowerCase().includes(q)
-    );
-  }, [products, query]);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<ProductDTO | null>(null);
+  const [taxonomyOpen, setTaxonomyOpen] = useState(false);
 
-  const catName = (id?: string | null) =>
-    categories.find((c) => c.id === id)?.name;
+  // Debounce de la búsqueda.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQuery(rawQuery);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [rawQuery]);
+
+  const categories = useCategories();
+  const brands = useBrands();
+
+  const params = useMemo(
+    () => ({
+      q: query || undefined,
+      categoryId: categoryId || undefined,
+      brandId: brandId || undefined,
+      sort,
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+    [query, categoryId, brandId, sort, page]
+  );
+
+  const products = useProducts(params);
+  const items = products.data?.items ?? [];
+  const total = products.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function openNew() {
     setEditing(null);
-    setForm(emptyForm);
-    setNewCat("");
-    setOpen(true);
+    setFormOpen(true);
   }
-
-  function openEdit(p: Product) {
+  function openEdit(p: ProductDTO) {
     setEditing(p);
-    setForm({
-      name: p.name,
-      sku: p.sku ?? "",
-      price: String(p.price),
-      cost: p.cost != null ? String(p.cost) : "",
-      stock: String(p.stock),
-      trackStock: p.trackStock,
-      categoryId: p.categoryId ?? "",
-    });
-    setNewCat("");
-    setOpen(true);
-  }
-
-  function save() {
-    const price = Number(form.price) || 0;
-    if (!form.name.trim()) return;
-    const payload = {
-      name: form.name.trim(),
-      sku: form.sku.trim() || undefined,
-      price,
-      cost: form.cost ? Number(form.cost) : undefined,
-      stock: Number(form.stock) || 0,
-      trackStock: form.trackStock,
-      categoryId: form.categoryId || null,
-    };
-    if (editing) {
-      updateProduct(editing.id, payload);
-    } else {
-      addProduct(payload);
-    }
-    setOpen(false);
-  }
-
-  function createCategory() {
-    const name = newCat.trim();
-    if (!name) return;
-    const cat = addCategory(name);
-    setForm((f) => ({ ...f, categoryId: cat.id }));
-    setNewCat("");
+    setFormOpen(true);
   }
 
   return (
@@ -127,39 +75,85 @@ export default function ProductsPage() {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-fg">Productos</h1>
-          <p className="text-sm text-fg-muted">
-            {products.length} activos en este negocio
-          </p>
+          <p className="text-sm text-fg-muted">{total} en total</p>
         </div>
-        <Button onClick={openNew}>
-          <PlusIcon size={18} weight="bold" /> Nuevo producto
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setTaxonomyOpen(true)}>
+            <SlidersHorizontalIcon size={18} /> Categorías y marcas
+          </Button>
+          <Button onClick={openNew}>
+            <PlusIcon size={18} weight="bold" /> Nuevo producto
+          </Button>
+        </div>
       </div>
 
-      <div className="relative mb-4">
-        <MagnifyingGlassIcon
-          size={18}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-subtle"
-        />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por nombre o código…"
-          className="h-11 w-full rounded-lg border border-border-strong bg-surface pl-10 pr-3 text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
-        />
+      {/* Búsqueda + filtros */}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <div className="relative flex-1">
+          <MagnifyingGlassIcon
+            size={18}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-subtle"
+          />
+          <input
+            value={rawQuery}
+            onChange={(e) => setRawQuery(e.target.value)}
+            placeholder="Buscar por nombre, SKU o código de barras…"
+            className="h-11 w-full rounded-lg border border-border-strong bg-surface pl-10 pr-3 text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
+          />
+        </div>
+        <Select
+          value={categoryId}
+          onChange={(e) => {
+            setCategoryId(e.target.value);
+            setPage(1);
+          }}
+          className="sm:w-44"
+        >
+          <option value="">Todas las categorías</option>
+          {categories.data?.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={brandId}
+          onChange={(e) => {
+            setBrandId(e.target.value);
+            setPage(1);
+          }}
+          className="sm:w-40"
+        >
+          <option value="">Todas las marcas</option>
+          {brands.data?.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as ProductSort)}
+          className="sm:w-36"
+        >
+          <option value="name">Nombre</option>
+          <option value="price">Precio</option>
+          <option value="stock">Stock</option>
+          <option value="recent">Recientes</option>
+        </Select>
       </div>
 
-      {filtered.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState
           icon={<TagIcon size={34} />}
-          title={query ? "Sin resultados" : "Todavía no hay productos"}
+          title={query || categoryId || brandId ? "Sin resultados" : "Todavía no hay productos"}
           description={
-            query
-              ? "Probá con otro nombre o código."
+            query || categoryId || brandId
+              ? "Probá con otros filtros."
               : "Cargá tu primer producto para empezar a vender."
           }
           action={
-            !query && (
+            !(query || categoryId || brandId) && (
               <Button onClick={openNew}>
                 <PlusIcon size={18} weight="bold" /> Nuevo producto
               </Button>
@@ -168,36 +162,37 @@ export default function ProductsPage() {
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          {/* Header (desktop) */}
           <div className="hidden grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-border px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle sm:grid">
             <span>Producto</span>
             <span className="w-24 text-right">Precio</span>
             <span className="w-20 text-right">Stock</span>
-            <span className="w-16 text-right">Acciones</span>
+            <span className="w-12 text-right">Editar</span>
           </div>
           <ul className="divide-y divide-border">
-            {filtered.map((p) => {
-              const out = p.trackStock && p.stock <= 0;
-              const low = p.trackStock && p.stock > 0 && p.stock <= LOW_STOCK;
+            {items.map((p) => {
+              const out = p.stock <= 0;
+              const low = p.minStock > 0 && p.stock > 0 && p.stock <= p.minStock;
               return (
                 <li
                   key={p.id}
                   className="flex items-center gap-4 px-4 py-3 sm:grid sm:grid-cols-[1fr_auto_auto_auto]"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-fg">{p.name}</p>
-                    <p className="flex items-center gap-2 text-xs text-fg-subtle">
-                      {catName(p.categoryId) && <span>{catName(p.categoryId)}</span>}
-                      {p.sku && <span className="tabular">· {p.sku}</span>}
+                    <p className="flex items-center gap-2 truncate font-semibold text-fg">
+                      {p.name}
+                      {!p.active && <Badge tone="neutral">Inactivo</Badge>}
+                    </p>
+                    <p className="flex flex-wrap items-center gap-x-2 text-xs text-fg-subtle">
+                      {p.categoryName && <span>{p.categoryName}</span>}
+                      {p.brandName && <span>· {p.brandName}</span>}
+                      {p.sku && <span>· {p.sku}</span>}
                     </p>
                   </div>
                   <span className="tabular w-24 text-right font-semibold text-fg">
-                    {formatMoney(p.price, currency)}
+                    {formatMoney(p.price, "ARS")}
                   </span>
                   <span className="w-20 text-right">
-                    {!p.trackStock ? (
-                      <span className="text-xs text-fg-subtle">—</span>
-                    ) : out ? (
+                    {out ? (
                       <Badge tone="danger">Sin stock</Badge>
                     ) : low ? (
                       <Badge tone="warning">{p.stock}</Badge>
@@ -205,20 +200,13 @@ export default function ProductsPage() {
                       <span className="tabular text-sm text-fg">{p.stock}</span>
                     )}
                   </span>
-                  <span className="flex w-16 justify-end gap-1">
+                  <span className="flex w-12 justify-end">
                     <button
                       onClick={() => openEdit(p)}
                       aria-label={`Editar ${p.name}`}
                       className="grid h-8 w-8 place-items-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg"
                     >
                       <PencilSimpleIcon size={17} />
-                    </button>
-                    <button
-                      onClick={() => setArchiving(p)}
-                      aria-label={`Archivar ${p.name}`}
-                      className="grid h-8 w-8 place-items-center rounded-md text-fg-muted hover:bg-danger-soft hover:text-danger"
-                    >
-                      <ArchiveIcon size={17} />
                     </button>
                   </span>
                 </li>
@@ -228,158 +216,39 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Create / edit modal */}
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Editar producto" : "Nuevo producto"}
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={save} disabled={!form.name.trim()}>
-              {editing ? "Guardar cambios" : "Crear producto"}
-            </Button>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <Field label="Nombre" htmlFor="p-name" required>
-            <Input
-              id="p-name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Ej. Coca-Cola 500ml"
-              autoFocus
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Precio de venta" htmlFor="p-price" required>
-              <Input
-                id="p-price"
-                inputMode="decimal"
-                value={form.price}
-                onChange={(e) =>
-                  setForm({ ...form, price: e.target.value.replace(/[^\d.]/g, "") })
-                }
-                placeholder="0"
-              />
-            </Field>
-            <Field label="Costo" htmlFor="p-cost" hint="Opcional">
-              <Input
-                id="p-cost"
-                inputMode="decimal"
-                value={form.cost}
-                onChange={(e) =>
-                  setForm({ ...form, cost: e.target.value.replace(/[^\d.]/g, "") })
-                }
-                placeholder="0"
-              />
-            </Field>
-          </div>
-
-          <Field label="Categoría" htmlFor="p-cat">
-            <Select
-              id="p-cat"
-              value={form.categoryId}
-              onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-sm text-fg-muted">
+            Página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
             >
-              <option value="">Sin categoría</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-            <div className="mt-2 flex gap-2">
-              <Input
-                value={newCat}
-                onChange={(e) => setNewCat(e.target.value)}
-                placeholder="Nueva categoría…"
-                className="h-10"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    createCategory();
-                  }
-                }}
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={createCategory}
-                disabled={!newCat.trim()}
-              >
-                Agregar
-              </Button>
-            </div>
-          </Field>
-
-          <div className="rounded-lg border border-border bg-surface-2 p-3">
-            <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span>
-                <span className="block text-sm font-semibold text-fg">
-                  Controlar stock
-                </span>
-                <span className="block text-xs text-fg-muted">
-                  Descontar unidades en cada venta
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={form.trackStock}
-                onChange={(e) => setForm({ ...form, trackStock: e.target.checked })}
-                className="h-5 w-5 accent-[var(--accent)]"
-              />
-            </label>
-            {form.trackStock && (
-              <div className="mt-3">
-                <Field label="Stock actual" htmlFor="p-stock">
-                  <Input
-                    id="p-stock"
-                    inputMode="numeric"
-                    value={form.stock}
-                    onChange={(e) =>
-                      setForm({ ...form, stock: e.target.value.replace(/[^\d-]/g, "") })
-                    }
-                    className="h-10"
-                  />
-                </Field>
-              </div>
-            )}
-          </div>
-        </div>
-      </Modal>
-
-      {/* Archive confirm */}
-      <Modal
-        open={!!archiving}
-        onClose={() => setArchiving(null)}
-        title="Archivar producto"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setArchiving(null)}>
-              Cancelar
+              Anterior
             </Button>
             <Button
-              variant="danger"
-              onClick={() => {
-                if (archiving) archiveProduct(archiving.id);
-                setArchiving(null);
-              }}
+              variant="secondary"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
             >
-              Archivar
+              Siguiente
             </Button>
           </div>
-        }
-      >
-        <p className="text-sm text-fg-muted">
-          ¿Archivar <span className="font-semibold text-fg">{archiving?.name}</span>? No
-          aparecerá más en la pantalla de venta. Las ventas anteriores se conservan.
-        </p>
-      </Modal>
+        </div>
+      )}
+
+      <ProductFormModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        product={editing}
+      />
+      <TaxonomyModal open={taxonomyOpen} onClose={() => setTaxonomyOpen(false)} />
     </div>
   );
 }
