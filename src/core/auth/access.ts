@@ -12,6 +12,7 @@ export type AppSection =
   | "ventas"
   | "caja"
   | "reportes"
+  | "usuarios"
   | "settings";
 
 const EMPLEADO_SECTIONS: readonly AppSection[] = ["pos", "ventas"];

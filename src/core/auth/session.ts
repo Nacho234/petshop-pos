@@ -14,10 +14,11 @@ export type SessionUser = NonNullable<
   Awaited<ReturnType<typeof getSession>>
 >["user"];
 
-/** Exige sesión; si no hay, redirige al login. Devuelve el usuario. */
+/** Exige sesión; si no hay (o el usuario está desactivado), redirige al login. */
 export async function requireAuth(): Promise<SessionUser> {
   const session = await getSession();
   if (!session) redirect("/login");
+  if (session.user.active === false) redirect("/login");
   return session.user;
 }
 

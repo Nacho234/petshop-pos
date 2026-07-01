@@ -19,6 +19,7 @@ function toDTO(row: SaleRow): SaleDTO {
   return {
     id: row.id,
     number: row.number,
+    status: row.status,
     subtotal: Number(row.subtotal),
     discount: Number(row.discount),
     total: Number(row.total),
@@ -48,6 +49,21 @@ export async function listSales(days: number): Promise<SaleDTO[]> {
   const repo = new SaleRepository(await getTenantId());
   const rows = await repo.listSince(from);
   return rows.map(toDTO);
+}
+
+// Últimas ventas para el historial (todos los estados).
+export async function listRecentSales(limit = 50): Promise<SaleDTO[]> {
+  const n = Math.min(Math.max(Math.trunc(limit) || 50, 1), 200);
+  const repo = new SaleRepository(await getTenantId());
+  const rows = await repo.listRecent(n);
+  return rows.map(toDTO);
+}
+
+// Anula una venta y devuelve el stock.
+export async function cancelSale(id: string, userId: string): Promise<SaleDTO> {
+  const repo = new SaleRepository(await getTenantId());
+  const row = await repo.cancel(id, userId);
+  return toDTO(row);
 }
 
 // Venta + datos del negocio para el comprobante. Lee tablas existentes.

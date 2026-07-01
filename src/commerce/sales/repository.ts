@@ -14,13 +14,23 @@ export type SaleItemData = { productId: string; qty: number; unitPrice: number }
 export type PaymentData = { method: Prisma.PaymentCreateManyInput["method"]; amount: number };
 
 export class SaleRepository extends BaseRepository {
-  // Ventas del tenant desde una fecha (inclusive), con detalle y pagos.
-  // Ordenadas por fecha ascendente para armar series diarias en reportes.
+  // Ventas COMPLETADAS del tenant desde una fecha (para reportes). Las anuladas
+  // se excluyen para no inflar los totales.
   async listSince(from: Date): Promise<SaleRow[]> {
     return prisma.sale.findMany({
-      where: this.scope({ createdAt: { gte: from } }),
+      where: this.scope<Prisma.SaleWhereInput>({ createdAt: { gte: from }, status: "COMPLETED" }),
       include: SALE_INCLUDE,
       orderBy: { createdAt: "asc" },
+    });
+  }
+
+  // Últimas ventas del tenant (todos los estados) para el historial.
+  async listRecent(limit: number): Promise<SaleRow[]> {
+    return prisma.sale.findMany({
+      where: this.scope<Prisma.SaleWhereInput>({}),
+      include: SALE_INCLUDE,
+      orderBy: { createdAt: "desc" },
+      take: limit,
     });
   }
 
@@ -29,6 +39,45 @@ export class SaleRepository extends BaseRepository {
     return prisma.sale.findFirst({
       where: { organizationId: this.organizationId, id },
       include: SALE_INCLUDE,
+    });
+  }
+
+  // Anula una venta COMPLETADA: la marca CANCELLED y devuelve el stock de cada
+  // ítem (con un InventoryMovement ADJUSTMENT). Idempotente sobre el estado.
+  async cancel(id: string, userId: string): Promise<SaleRow> {
+    const org = this.organizationId;
+    return prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.findFirst({
+        where: { organizationId: org, id },
+        include: SALE_INCLUDE,
+      });
+      if (!sale) throw new Error("La venta no existe.");
+      if (sale.status === "CANCELLED") throw new Error("La venta ya está anulada.");
+
+      await tx.sale.update({ where: { id }, data: { status: "CANCELLED" } });
+
+      for (const item of sale.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.qty } },
+        });
+        await tx.inventoryMovement.create({
+          data: {
+            organizationId: org,
+            productId: item.productId,
+            type: "ADJUSTMENT",
+            quantity: item.qty,
+            reason: `Anulación venta #${sale.number}`,
+            saleId: sale.id,
+            userId,
+          },
+        });
+      }
+
+      return (await tx.sale.findFirstOrThrow({
+        where: { id },
+        include: SALE_INCLUDE,
+      }))!;
     });
   }
 

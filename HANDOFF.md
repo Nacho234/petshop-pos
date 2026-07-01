@@ -38,15 +38,29 @@ Rama: `nacho/reportes-desde-db`
 **Reportes**
 - `app/(app)/reportes/page.tsx` — reescrita: lee ventas de la DB. KPIs (ventas, tickets, unidades, ticket promedio), hoy/7d/30d, ventas por día, medios de pago (5), más vendidos, estado vacío.
 
+## Segunda tanda — funcionalidades para operar como negocio
+Todo usa **tablas que ya existen** (sin tocar el schema):
+
+- **Usuarios / empleados** (`src/core/users/*`, `app/(app)/usuarios/page.tsx`) — ADMIN puede crear usuarios (nombre, email, contraseña, rol) con el mismo hash que el login, y activar/desactivar. Un usuario desactivado no puede entrar (`requireAuth` lo bloquea). No podés desactivarte a vos mismo. Sección `usuarios` en `access.ts` (solo ADMIN).
+- **Historial de ventas + anulación** (`app/(app)/ventas/page.tsx`, `sales/*`) — listado de ventas (ADMIN y EMPLEADO), reimprimir ticket, y **anular venta** (solo ADMIN): marca `CANCELLED` y **devuelve el stock** (InventoryMovement ADJUSTMENT). Las anuladas se **excluyen** de reportes y del arqueo de caja.
+- **Ajustes del negocio** (`src/core/settings/*`, `app/(app)/ajustes/page.tsx`) — ADMIN edita nombre, razón social, CUIT, dirección, teléfono y moneda (tabla `Settings`, upsert). Esos datos alimentan el ticket.
+- **Navegación** (`components/app-shell.tsx`) — nuevas secciones (Ventas, Usuarios, Ajustes) filtradas por rol; el indicador de "caja abierta" ahora lee la caja de la **base** (antes localStorage).
+
 ## Verificación
 - `npm run lint` → **sin errores**.
 - `npm run build` → **OK** (los `BetterAuthError`/"Base URL" son warnings por falta de `.env` local; en prod con env seteadas no aparecen).
 - `npx tsc --noEmit` → **OK**.
 
-## Pendiente para la etapa de base de datos
-1. **Ingresos/egresos de caja (aportes/retiros manuales).** Requieren una tabla nueva (`CashMovement`) → quedó **fuera** para no tocar el schema. Hoy el "efectivo esperado" = fondo inicial + ventas en efectivo del turno. Cuando se agregue la tabla, sumar income − expense al arqueo.
-2. **Acceso de EMPLEADO a Caja.** Hoy `src/core/auth/access.ts` deja la sección `caja` solo para ADMIN (EMPLEADO = `pos`, `ventas`). Implica que **un empleado no puede abrir la caja**: si trabaja solo y la caja está cerrada, no puede vender hasta que un ADMIN la abra. Definir si se agrega `caja` a `EMPLEADO_SECTIONS`.
-3. **Filtro "archivados"** en Productos (hoy los inactivos aparecen con badge "Inactivo" pero no hay filtro dedicado).
+## Pendiente (necesita cambios de base de datos → coordinar con Nico)
+Estas dos **requieren una tabla nueva + migración** en la prod, por eso quedaron afuera de esta etapa:
+1. **Ingresos/egresos de caja (aportes/retiros manuales).** Necesitan una tabla `CashMovement`. Hoy el "efectivo esperado" = fondo inicial + ventas en efectivo del turno; cuando exista la tabla, sumar income − egresos al arqueo.
+2. **Compras / ingreso de mercadería (reposición de stock con costo).** El schema ya tiene `Supplier` y el movimiento `PURCHASE`, pero falta la UI y el flujo (y probablemente una tabla `Purchase`).
+
+## Pendiente menor (sin DB, decisiones de producto)
+3. **Acceso de EMPLEADO a Caja.** Hoy `access.ts` deja `caja` solo para ADMIN. Implica que **un empleado no puede abrir la caja**: si trabaja solo y está cerrada, no puede vender hasta que un ADMIN la abra. Definir si se agrega `caja` a `EMPLEADO_SECTIONS`.
+4. **Filtro "archivados"** en Productos (los inactivos aparecen con badge, pero no hay filtro dedicado).
+5. **Facturación fiscal (AFIP) y formato de impresora térmica** — excluidos a pedido; el comprobante actual es no fiscal e imprime desde el navegador.
+6. **Nav mobile con 7 ítems** para ADMIN queda algo apretada; evaluar un menú "más" si molesta.
 
 ## Notas de auth/infra (contexto)
 - El login ya funciona en prod tras cargar en Vercel las 4 env: `DATABASE_URL`, `DIRECT_URL`, `BETTER_AUTH_SECRET`, `DEFAULT_ORG_ID`.
