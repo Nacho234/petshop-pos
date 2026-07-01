@@ -12,7 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { useHydrated } from "@/lib/store";
 import { useOpenSession } from "@/lib/selectors";
-import { BusinessSwitcher } from "./business-switcher";
+import { BusinessBadge } from "./business-badge";
 import { ThemeToggle, useApplyTheme } from "./theme-toggle";
 import { cx } from "./ui";
 
@@ -63,7 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="font-display text-lg font-bold text-fg">Caja</span>
         </div>
 
-        <BusinessSwitcher />
+        <BusinessBadge />
 
         <nav className="mt-4 flex flex-1 flex-col gap-1">
           {NAV.map((item) => {
@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Mobile top bar */}
       <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-surface/90 px-3 py-2.5 backdrop-blur lg:hidden">
         <div className="flex-1">
-          <BusinessSwitcher />
+          <BusinessBadge />
         </div>
         <ThemeToggle />
       </header>

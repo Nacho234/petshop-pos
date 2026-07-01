@@ -1,30 +1,25 @@
-// Domain model. Every business-owned entity carries `businessId` (the tenant key).
-// When we move to Supabase this maps 1:1 to tables + a Row Level Security policy
-// scoping each row by `business_id`.
+// Domain model for a SINGLE-business POS. This project is one deploy = one
+// business (the pet shop). To reuse it for another business, copy the template
+// and change the seed / business config. There is no runtime multi-tenancy.
 
 export type ID = string;
 
 export interface Business {
-  id: ID;
   name: string;
-  slug: string;
   legalName?: string;
   taxId?: string; // CUIT
   address?: string;
   phone?: string;
   currency: string; // ISO 4217, e.g. "ARS"
-  createdAt: string;
 }
 
 export interface Category {
   id: ID;
-  businessId: ID;
   name: string;
 }
 
 export interface Product {
   id: ID;
-  businessId: ID;
   name: string;
   sku?: string;
   price: number;
@@ -47,8 +42,7 @@ export interface SaleItem {
 
 export interface Sale {
   id: ID;
-  businessId: ID;
-  number: number; // per-business incremental ticket number
+  number: number; // incremental ticket number
   items: SaleItem[];
   subtotal: number;
   discount: number; // absolute amount
@@ -64,7 +58,6 @@ export type CashMovementType = "venta" | "ingreso" | "egreso";
 
 export interface CashMovement {
   id: ID;
-  businessId: ID;
   sessionId: ID;
   type: CashMovementType;
   amount: number; // always positive; `type` sets the direction
@@ -77,7 +70,6 @@ export type CashSessionStatus = "open" | "closed";
 
 export interface CashSession {
   id: ID;
-  businessId: ID;
   status: CashSessionStatus;
   openedAt: string;
   openingAmount: number;

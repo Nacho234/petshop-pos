@@ -26,9 +26,7 @@ export default function TicketPage({
   const { id } = use(params);
   const hydrated = useHydrated();
   const sale = useStore((s) => s.sales.find((x) => x.id === id));
-  const business = useStore((s) =>
-    s.businesses.find((b) => b.id === sale?.businessId)
-  );
+  const business = useStore((s) => s.business);
 
   if (!hydrated) {
     return <div className="grid min-h-dvh place-items-center text-fg-subtle">Cargando…</div>;

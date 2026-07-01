@@ -5,72 +5,41 @@ import { useStore } from "./store";
 import type { CashMovement, CashSession, Sale } from "./types";
 
 // NOTE: Zustand v5 compares selector results by reference. Returning a fresh
-// array/object from a selector (e.g. `s.products.filter(...)`) changes the
-// snapshot on every render and triggers an infinite update loop. So we select
-// the stable slices and derive with `useMemo`.
+// array/object from a selector changes the snapshot on every render and triggers
+// an infinite update loop. So we select stable slices and derive with `useMemo`.
 
-export function useCurrentBusiness() {
-  const businesses = useStore((s) => s.businesses);
-  const currentId = useStore((s) => s.currentBusinessId);
-  return useMemo(
-    () => businesses.find((b) => b.id === currentId)!,
-    [businesses, currentId]
-  );
+export function useBusiness() {
+  return useStore((s) => s.business);
 }
 
 export function useCurrency() {
-  const business = useCurrentBusiness();
-  return business?.currency ?? "ARS";
+  return useStore((s) => s.business.currency);
 }
 
 export function useProducts(opts?: { activeOnly?: boolean }) {
   const activeOnly = opts?.activeOnly ?? true;
   const products = useStore((s) => s.products);
-  const currentId = useStore((s) => s.currentBusinessId);
   return useMemo(
-    () =>
-      products.filter(
-        (p) => p.businessId === currentId && (!activeOnly || p.active)
-      ),
-    [products, currentId, activeOnly]
+    () => (activeOnly ? products.filter((p) => p.active) : products),
+    [products, activeOnly]
   );
 }
 
 export function useCategories() {
-  const categories = useStore((s) => s.categories);
-  const currentId = useStore((s) => s.currentBusinessId);
-  return useMemo(
-    () => categories.filter((c) => c.businessId === currentId),
-    [categories, currentId]
-  );
+  return useStore((s) => s.categories);
 }
 
 export function useSales() {
-  const sales = useStore((s) => s.sales);
-  const currentId = useStore((s) => s.currentBusinessId);
-  return useMemo(
-    () => sales.filter((sale) => sale.businessId === currentId),
-    [sales, currentId]
-  );
+  return useStore((s) => s.sales);
 }
 
 export function useOpenSession() {
   const sessions = useStore((s) => s.cashSessions);
-  const currentId = useStore((s) => s.currentBusinessId);
-  return useMemo(
-    () =>
-      sessions.find((c) => c.businessId === currentId && c.status === "open"),
-    [sessions, currentId]
-  );
+  return useMemo(() => sessions.find((c) => c.status === "open"), [sessions]);
 }
 
 export function useSessions() {
-  const sessions = useStore((s) => s.cashSessions);
-  const currentId = useStore((s) => s.currentBusinessId);
-  return useMemo(
-    () => sessions.filter((c) => c.businessId === currentId),
-    [sessions, currentId]
-  );
+  return useStore((s) => s.cashSessions);
 }
 
 export function useCartTotals() {
@@ -87,11 +56,11 @@ export function useCartTotals() {
 // ---- Pure helpers (no hooks) --------------------------------------------
 
 export interface SessionMetrics {
-  cashSales: number; // efectivo movements of type venta
-  income: number; // manual ingresos
-  expense: number; // manual egresos
-  expectedCash: number; // opening + cashSales + income - expense
-  difference: number | null; // counted - expected (null while open)
+  cashSales: number;
+  income: number;
+  expense: number;
+  expectedCash: number;
+  difference: number | null;
 }
 
 export function computeSessionMetrics(
@@ -114,15 +83,6 @@ export function computeSessionMetrics(
       ? session.countedAmount - expectedCash
       : null;
   return { cashSales, income, expense, expectedCash, difference };
-}
-
-export function isSameDay(iso: string, ref = new Date()): boolean {
-  const d = new Date(iso);
-  return (
-    d.getFullYear() === ref.getFullYear() &&
-    d.getMonth() === ref.getMonth() &&
-    d.getDate() === ref.getDate()
-  );
 }
 
 export interface SalesSummary {

@@ -25,8 +25,7 @@ interface CheckoutInput {
 }
 
 interface State {
-  businesses: Business[];
-  currentBusinessId: ID;
+  business: Business;
   categories: Category[];
   products: Product[];
   sales: Sale[];
@@ -36,14 +35,13 @@ interface State {
   cartDiscount: number;
   theme: ThemePref;
 
-  // tenant
-  setCurrentBusiness: (id: ID) => void;
-  addBusiness: (b: Omit<Business, "id" | "createdAt">) => Business;
+  // business config
+  updateBusiness: (patch: Partial<Business>) => void;
 
   // catalog
   addCategory: (name: string) => Category;
   addProduct: (
-    p: Omit<Product, "id" | "businessId" | "createdAt" | "active">
+    p: Omit<Product, "id" | "createdAt" | "active">
   ) => Product;
   updateProduct: (id: ID, patch: Partial<Product>) => void;
   archiveProduct: (id: ID) => void;
@@ -82,8 +80,7 @@ const noopStorage = {
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
-      businesses: initial.businesses,
-      currentBusinessId: initial.businesses[0].id,
+      business: initial.business,
       categories: initial.categories,
       products: initial.products,
       sales: [],
@@ -93,25 +90,11 @@ export const useStore = create<State>()(
       cartDiscount: 0,
       theme: "system",
 
-      setCurrentBusiness: (id) =>
-        set({ currentBusinessId: id, cart: [], cartDiscount: 0 }),
-
-      addBusiness: (b) => {
-        const biz: Business = {
-          ...b,
-          id: newId(),
-          createdAt: new Date().toISOString(),
-        };
-        set((s) => ({ businesses: [...s.businesses, biz] }));
-        return biz;
-      },
+      updateBusiness: (patch) =>
+        set((s) => ({ business: { ...s.business, ...patch } })),
 
       addCategory: (name) => {
-        const cat: Category = {
-          id: newId(),
-          businessId: get().currentBusinessId,
-          name: name.trim(),
-        };
+        const cat: Category = { id: newId(), name: name.trim() };
         set((s) => ({ categories: [...s.categories, cat] }));
         return cat;
       },
@@ -120,7 +103,6 @@ export const useStore = create<State>()(
         const product: Product = {
           ...p,
           id: newId(),
-          businessId: get().currentBusinessId,
           active: true,
           createdAt: new Date().toISOString(),
         };
@@ -177,14 +159,12 @@ export const useStore = create<State>()(
       removeFromCart: (productId) =>
         set((s) => ({ cart: s.cart.filter((i) => i.productId !== productId) })),
 
-      setCartDiscount: (amount) =>
-        set({ cartDiscount: Math.max(0, amount) }),
+      setCartDiscount: (amount) => set({ cartDiscount: Math.max(0, amount) }),
 
       clearCart: () => set({ cart: [], cartDiscount: 0 }),
 
       checkout: ({ paymentMethod, cashReceived }) => {
         const s = get();
-        const businessId = s.currentBusinessId;
         if (s.cart.length === 0) return null;
 
         const subtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
@@ -192,17 +172,12 @@ export const useStore = create<State>()(
         const total = subtotal - discount;
 
         const number =
-          s.sales
-            .filter((sale) => sale.businessId === businessId)
-            .reduce((max, sale) => Math.max(max, sale.number), 0) + 1;
+          s.sales.reduce((max, sale) => Math.max(max, sale.number), 0) + 1;
 
-        const openSession = s.cashSessions.find(
-          (c) => c.businessId === businessId && c.status === "open"
-        );
+        const openSession = s.cashSessions.find((c) => c.status === "open");
 
         const sale: Sale = {
           id: newId(),
-          businessId,
           number,
           items: s.cart.map((i) => ({ ...i })),
           subtotal,
@@ -218,7 +193,6 @@ export const useStore = create<State>()(
           createdAt: new Date().toISOString(),
         };
 
-        // decrement stock for tracked products
         const products = s.products.map((p) => {
           const line = s.cart.find((i) => i.productId === p.id);
           if (line && p.trackStock) {
@@ -227,12 +201,10 @@ export const useStore = create<State>()(
           return p;
         });
 
-        // register cash income if paid cash into an open session
         const movements = [...s.cashMovements];
         if (paymentMethod === "efectivo" && openSession) {
           movements.push({
             id: newId(),
-            businessId,
             sessionId: openSession.id,
             type: "venta",
             amount: total,
@@ -254,14 +226,9 @@ export const useStore = create<State>()(
 
       openSession: (openingAmount) => {
         const s = get();
-        const businessId = s.currentBusinessId;
-        const already = s.cashSessions.find(
-          (c) => c.businessId === businessId && c.status === "open"
-        );
-        if (already) return null;
+        if (s.cashSessions.find((c) => c.status === "open")) return null;
         const session: CashSession = {
           id: newId(),
-          businessId,
           status: "open",
           openedAt: new Date().toISOString(),
           openingAmount,
@@ -287,14 +254,10 @@ export const useStore = create<State>()(
 
       addCashMovement: (type, amount, reason) => {
         const s = get();
-        const businessId = s.currentBusinessId;
-        const session = s.cashSessions.find(
-          (c) => c.businessId === businessId && c.status === "open"
-        );
+        const session = s.cashSessions.find((c) => c.status === "open");
         if (!session || amount <= 0) return;
         const mv: CashMovement = {
           id: newId(),
-          businessId,
           sessionId: session.id,
           type,
           amount,
@@ -307,23 +270,11 @@ export const useStore = create<State>()(
       setTheme: (t) => set({ theme: t }),
     }),
     {
-      name: "caja-store",
+      name: "petshop-pos",
       version: 1,
       storage: createJSONStorage(() =>
         typeof window !== "undefined" ? window.localStorage : noopStorage
       ),
-      partialize: (s) => ({
-        businesses: s.businesses,
-        currentBusinessId: s.currentBusinessId,
-        categories: s.categories,
-        products: s.products,
-        sales: s.sales,
-        cashSessions: s.cashSessions,
-        cashMovements: s.cashMovements,
-        cart: s.cart,
-        cartDiscount: s.cartDiscount,
-        theme: s.theme,
-      }),
     }
   )
 );
