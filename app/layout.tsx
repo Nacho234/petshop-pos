@@ -3,6 +3,7 @@ import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ServiceWorker } from "@/components/service-worker";
 import { ThemeScript } from "@/components/theme-script";
+import { QueryProvider } from "@/shared/components/query-provider";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -57,7 +58,7 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body>
-        {children}
+        <QueryProvider>{children}</QueryProvider>
         <ServiceWorker />
       </body>
     </html>

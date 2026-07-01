@@ -27,3 +27,15 @@ export async function requireAccess(section: AppSection): Promise<SessionUser> {
   if (!canAccess(user.role, section)) redirect("/pos");
   return user;
 }
+
+/**
+ * Igual que requireAccess pero LANZA en vez de redirigir. Para usar en Server
+ * Actions (mutaciones), donde un throw es el comportamiento correcto.
+ */
+export async function assertAccess(section: AppSection): Promise<SessionUser> {
+  const user = await requireAuth();
+  if (!canAccess(user.role, section)) {
+    throw new Error("No autorizado");
+  }
+  return user;
+}
