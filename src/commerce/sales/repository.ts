@@ -14,6 +14,24 @@ export type SaleItemData = { productId: string; qty: number; unitPrice: number }
 export type PaymentData = { method: Prisma.PaymentCreateManyInput["method"]; amount: number };
 
 export class SaleRepository extends BaseRepository {
+  // Ventas del tenant desde una fecha (inclusive), con detalle y pagos.
+  // Ordenadas por fecha ascendente para armar series diarias en reportes.
+  async listSince(from: Date): Promise<SaleRow[]> {
+    return prisma.sale.findMany({
+      where: this.scope({ createdAt: { gte: from } }),
+      include: SALE_INCLUDE,
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  // Una venta del tenant por id (para el comprobante/ticket).
+  getById(id: string): Promise<SaleRow | null> {
+    return prisma.sale.findFirst({
+      where: { organizationId: this.organizationId, id },
+      include: SALE_INCLUDE,
+    });
+  }
+
   // Crea la venta completa en una sola transacción:
   //  - valida existencia/actividad/stock de cada producto (del tenant),
   //  - asigna el número correlativo,
@@ -61,18 +79,21 @@ export class SaleRepository extends BaseRepository {
       });
       const number = (last?.number ?? 0) + 1;
 
-      // Sesión de caja abierta (si hay), para vincular la venta.
+      // Exige caja abierta: no se puede vender con la caja cerrada.
       const openCash = await tx.cashSession.findFirst({
         where: { organizationId: org, status: "OPEN" },
         select: { id: true },
       });
+      if (!openCash) {
+        throw new Error("La caja está cerrada. Abrí la caja antes de registrar ventas.");
+      }
 
       const sale = await tx.sale.create({
         data: {
           organizationId: org,
           number,
           employeeId: input.employeeId,
-          cashSessionId: openCash?.id ?? null,
+          cashSessionId: openCash.id,
           subtotal,
           discount: input.discount,
           total,

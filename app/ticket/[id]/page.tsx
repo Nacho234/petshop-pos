@@ -7,16 +7,11 @@ import {
   PrinterIcon,
   PlusCircleIcon,
 } from "@phosphor-icons/react";
-import { useHydrated, useStore } from "@/lib/store";
-import { formatDate, formatMoney } from "@/lib/format";
-import type { PaymentMethod } from "@/lib/types";
-import { Button } from "@/components/ui";
 
-const METHOD_LABEL: Record<PaymentMethod, string> = {
-  efectivo: "Efectivo",
-  tarjeta: "Tarjeta",
-  transferencia: "Transferencia",
-};
+import { formatDate, formatMoney } from "@/lib/format";
+import { useSaleTicket } from "@/commerce/sales/hooks";
+import { PAYMENT_LABELS } from "@/commerce/sales/schemas";
+import { Button } from "@/components/ui";
 
 export default function TicketPage({
   params,
@@ -24,21 +19,19 @@ export default function TicketPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const hydrated = useHydrated();
-  const sale = useStore((s) => s.sales.find((x) => x.id === id));
-  const business = useStore((s) => s.business);
+  const { data, isLoading, isError } = useSaleTicket(id);
 
-  if (!hydrated) {
+  if (isLoading) {
     return <div className="grid min-h-dvh place-items-center text-fg-subtle">Cargando…</div>;
   }
 
-  if (!sale || !business) {
+  if (isError || !data) {
     return (
       <div className="grid min-h-dvh place-items-center px-6 text-center">
         <div>
           <p className="font-display text-lg font-bold text-fg">Ticket no encontrado</p>
           <p className="mt-1 text-sm text-fg-muted">
-            Puede que la venta se haya hecho en otro dispositivo.
+            No pudimos encontrar esa venta.
           </p>
           <Link href="/pos" className="mt-4 inline-block font-semibold text-accent">
             Volver a vender
@@ -48,6 +41,7 @@ export default function TicketPage({
     );
   }
 
+  const { sale, business } = data;
   const currency = business.currency;
 
   return (
@@ -88,16 +82,16 @@ export default function TicketPage({
           </div>
 
           <ul className="divide-y divide-border py-2">
-            {sale.items.map((item) => (
-              <li key={item.productId} className="py-2">
+            {sale.items.map((item, idx) => (
+              <li key={idx} className="py-2">
                 <div className="flex justify-between gap-2">
                   <span className="text-sm font-medium text-fg">{item.name}</span>
                   <span className="tabular text-sm font-semibold text-fg">
-                    {formatMoney(item.price * item.qty, currency)}
+                    {formatMoney(item.subtotal, currency)}
                   </span>
                 </div>
                 <span className="tabular text-xs text-fg-subtle">
-                  {item.qty} × {formatMoney(item.price, currency)}
+                  {item.qty} × {formatMoney(item.unitPrice, currency)}
                 </span>
               </li>
             ))}
@@ -106,10 +100,7 @@ export default function TicketPage({
           <div className="border-t border-dashed border-border-strong pt-3 text-sm">
             <Row label="Subtotal" value={formatMoney(sale.subtotal, currency)} />
             {sale.discount > 0 && (
-              <Row
-                label="Descuento"
-                value={`- ${formatMoney(sale.discount, currency)}`}
-              />
+              <Row label="Descuento" value={`- ${formatMoney(sale.discount, currency)}`} />
             )}
             <div className="mt-1 flex justify-between border-t border-border pt-2">
               <span className="font-display text-base font-bold text-fg">TOTAL</span>
@@ -120,13 +111,9 @@ export default function TicketPage({
           </div>
 
           <div className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-sm">
-            <Row label="Pago" value={METHOD_LABEL[sale.paymentMethod]} />
-            {sale.paymentMethod === "efectivo" && sale.cashReceived != null && (
-              <>
-                <Row label="Recibido" value={formatMoney(sale.cashReceived, currency)} />
-                <Row label="Vuelto" value={formatMoney(sale.change ?? 0, currency)} />
-              </>
-            )}
+            {sale.payments.map((p, idx) => (
+              <Row key={idx} label={PAYMENT_LABELS[p.method]} value={formatMoney(p.amount, currency)} />
+            ))}
           </div>
 
           <p className="mt-5 text-center text-xs text-fg-subtle">

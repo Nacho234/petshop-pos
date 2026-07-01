@@ -7,15 +7,19 @@ import {
   StackIcon,
   TrendUpIcon,
 } from "@phosphor-icons/react";
-import {
-  summarizeSales,
-  topProducts,
-  useCurrency,
-  useSales,
-} from "@/lib/selectors";
+
 import { formatMoney } from "@/lib/format";
-import type { PaymentMethod, Sale } from "@/lib/types";
+import { APP_CONFIG } from "@/shared/config/app";
+import { useSalesReport } from "@/commerce/sales/hooks";
+import {
+  PAYMENT_LABELS,
+  PAYMENT_METHODS,
+  type PaymentMethod,
+  type SaleDTO,
+} from "@/commerce/sales/schemas";
 import { Badge, Card, EmptyState, cx } from "@/components/ui";
+
+const CURRENCY = APP_CONFIG.defaultCurrency;
 
 type Period = "today" | "7d" | "30d";
 
@@ -25,15 +29,12 @@ const PERIODS: { id: Period; label: string; days: number }[] = [
   { id: "30d", label: "30 días", days: 30 },
 ];
 
-const METHOD_LABEL: Record<PaymentMethod, string> = {
-  efectivo: "Efectivo",
-  tarjeta: "Tarjeta",
-  transferencia: "Transferencia",
-};
 const METHOD_COLOR: Record<PaymentMethod, string> = {
-  efectivo: "var(--success)",
-  tarjeta: "var(--accent)",
-  transferencia: "var(--warning)",
+  EFECTIVO: "var(--success)",
+  DEBITO: "var(--accent)",
+  CREDITO: "var(--accent)",
+  TRANSFERENCIA: "var(--warning)",
+  MERCADO_PAGO: "var(--warning)",
 };
 
 function startOfDay(d: Date) {
@@ -46,7 +47,7 @@ interface DayBucket {
   total: number;
 }
 
-function dailySeries(sales: Sale[], days: number): DayBucket[] {
+function dailySeries(sales: SaleDTO[], days: number): DayBucket[] {
   const today = startOfDay(new Date());
   const buckets: DayBucket[] = [];
   const byKey = new Map<string, number>();
@@ -69,9 +70,49 @@ function dailySeries(sales: Sale[], days: number): DayBucket[] {
   return buckets;
 }
 
+interface Summary {
+  total: number;
+  count: number;
+  items: number;
+  byMethod: Partial<Record<PaymentMethod, number>>;
+}
+
+function summarize(sales: SaleDTO[]): Summary {
+  const byMethod: Partial<Record<PaymentMethod, number>> = {};
+  let total = 0;
+  let items = 0;
+  for (const s of sales) {
+    total += s.total;
+    for (const i of s.items) items += i.qty;
+    for (const p of s.payments) {
+      byMethod[p.method] = (byMethod[p.method] ?? 0) + p.amount;
+    }
+  }
+  return { total, count: sales.length, items, byMethod };
+}
+
+interface TopProduct {
+  name: string;
+  qty: number;
+  revenue: number;
+}
+
+function topProducts(sales: SaleDTO[], limit: number): TopProduct[] {
+  const byName = new Map<string, TopProduct>();
+  for (const s of sales) {
+    for (const i of s.items) {
+      const cur = byName.get(i.name) ?? { name: i.name, qty: 0, revenue: 0 };
+      cur.qty += i.qty;
+      cur.revenue += i.subtotal;
+      byName.set(i.name, cur);
+    }
+  }
+  return [...byName.values()].sort((a, b) => b.qty - a.qty).slice(0, limit);
+}
+
 export default function ReportesPage() {
-  const sales = useSales();
-  const currency = useCurrency();
+  // Traemos hasta 30 días una vez y filtramos por período en el cliente.
+  const { data: sales = [], isLoading } = useSalesReport(30);
   const [period, setPeriod] = useState<Period>("7d");
 
   const days = PERIODS.find((p) => p.id === period)!.days;
@@ -82,7 +123,7 @@ export default function ReportesPage() {
     return sales.filter((s) => new Date(s.createdAt) >= from);
   }, [sales, days]);
 
-  const summary = useMemo(() => summarizeSales(periodSales), [periodSales]);
+  const summary = useMemo(() => summarize(periodSales), [periodSales]);
   const series = useMemo(() => dailySeries(periodSales, days), [periodSales, days]);
   const top = useMemo(() => topProducts(periodSales, 5), [periodSales]);
   const maxDay = Math.max(1, ...series.map((b) => b.total));
@@ -110,7 +151,9 @@ export default function ReportesPage() {
         </div>
       </div>
 
-      {sales.length === 0 ? (
+      {isLoading ? (
+        <p className="py-16 text-center text-sm text-fg-muted">Cargando reportes…</p>
+      ) : sales.length === 0 ? (
         <EmptyState
           icon={<ChartBarIcon size={34} />}
           title="Todavía no hay ventas"
@@ -123,7 +166,7 @@ export default function ReportesPage() {
             <Kpi
               icon={<TrendUpIcon size={18} />}
               label="Ventas"
-              value={formatMoney(summary.total, currency)}
+              value={formatMoney(summary.total, CURRENCY)}
             />
             <Kpi
               icon={<ReceiptIcon size={18} />}
@@ -138,7 +181,7 @@ export default function ReportesPage() {
             <Kpi
               icon={<TrendUpIcon size={18} />}
               label="Ticket promedio"
-              value={formatMoney(avgTicket, currency)}
+              value={formatMoney(avgTicket, CURRENCY)}
             />
           </div>
 
@@ -148,7 +191,7 @@ export default function ReportesPage() {
             <div className="flex h-44 items-end gap-1.5">
               {series.map((b) => (
                 <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-                  <div className="flex w-full flex-1 items-end" title={`${b.label}: ${formatMoney(b.total, currency)}`}>
+                  <div className="flex w-full flex-1 items-end" title={`${b.label}: ${formatMoney(b.total, CURRENCY)}`}>
                     <div
                       className="w-full rounded-t bg-accent transition-[height] duration-300"
                       style={{
@@ -175,15 +218,15 @@ export default function ReportesPage() {
                 </p>
               ) : (
                 <ul className="flex flex-col gap-3">
-                  {(Object.keys(METHOD_LABEL) as PaymentMethod[]).map((method) => {
+                  {PAYMENT_METHODS.map((method) => {
                     const val = summary.byMethod[method] ?? 0;
                     const pct = summary.total > 0 ? (val / summary.total) * 100 : 0;
                     return (
                       <li key={method}>
                         <div className="mb-1 flex items-center justify-between text-sm">
-                          <span className="font-medium text-fg">{METHOD_LABEL[method]}</span>
+                          <span className="font-medium text-fg">{PAYMENT_LABELS[method]}</span>
                           <span className="tabular text-fg-muted">
-                            {formatMoney(val, currency)}
+                            {formatMoney(val, CURRENCY)}
                           </span>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full bg-surface-2">
@@ -209,7 +252,7 @@ export default function ReportesPage() {
               ) : (
                 <ul className="flex flex-col gap-2">
                   {top.map((p, i) => (
-                    <li key={p.productId} className="flex items-center gap-3">
+                    <li key={p.name} className="flex items-center gap-3">
                       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-surface-2 text-sm font-bold text-fg-muted tabular">
                         {i + 1}
                       </span>
@@ -218,7 +261,7 @@ export default function ReportesPage() {
                       </span>
                       <Badge tone="neutral">{p.qty} u.</Badge>
                       <span className="tabular w-24 text-right text-sm font-semibold text-fg">
-                        {formatMoney(p.revenue, currency)}
+                        {formatMoney(p.revenue, CURRENCY)}
                       </span>
                     </li>
                   ))}

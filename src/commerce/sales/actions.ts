@@ -9,3 +9,15 @@ export async function createSaleAction(input: CreateSaleInput) {
   await assertAccess("pos");
   return service.createSale(input);
 }
+
+// Listado para reportes: sólo roles con acceso a "reportes" (ADMIN).
+export async function listSalesAction(days: number) {
+  await assertAccess("reportes");
+  return service.listSales(days);
+}
+
+// Comprobante de una venta: permitido a quien puede vender (ADMIN y EMPLEADO).
+export async function getSaleForTicketAction(id: string) {
+  await assertAccess("ventas");
+  return service.getSaleForTicket(id);
+}

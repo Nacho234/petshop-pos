@@ -1,23 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   MagnifyingGlassIcon,
   MinusIcon,
   PlusIcon,
   TrashIcon,
   CheckCircleIcon,
+  WarningIcon,
+  LockIcon,
 } from "@phosphor-icons/react";
 
 import { Badge, Button } from "@/components/ui";
 import { formatMoney } from "@/lib/format";
+import { APP_CONFIG } from "@/shared/config/app";
 import { useSession } from "@/core/auth/auth-client";
 import { useSearchProductsForPos } from "@/commerce/products/hooks";
 import { searchProductsForPosAction } from "@/commerce/products/actions";
 import type { ProductDTO } from "@/commerce/products/schemas";
 import { useCreateSale } from "@/commerce/sales/hooks";
+import { useCashSession } from "@/commerce/cash/hooks";
 import { PaymentModal } from "@/commerce/sales/components/payment-modal";
 import type { PaymentMethod } from "@/commerce/sales/schemas";
+
+const CURRENCY = APP_CONFIG.defaultCurrency;
 
 type CartItem = {
   productId: string;
@@ -31,12 +38,18 @@ export default function PosPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
 
+  // Regla obligatoria: no se puede vender sin una caja abierta.
+  const caja = useCashSession();
+  const cajaOpen = !!caja.data;
+  const cajaLoading = caja.isLoading;
+
   const [rawQuery, setRawQuery] = useState("");
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState("");
   const [payOpen, setPayOpen] = useState(false);
-  const [success, setSuccess] = useState<number | null>(null);
+  const [lastSale, setLastSale] = useState<{ id: string; number: number } | null>(null);
+  const [saleError, setSaleError] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const createSale = useCreateSale();
@@ -52,14 +65,21 @@ export default function PosPage() {
     () => cart.reduce((s, i) => s + i.unitPrice * i.qty, 0),
     [cart]
   );
-  const discountNum = Math.min(Number(discount) || 0, subtotal);
+  const discountRaw = Number(discount) || 0;
+  const discountNum = Math.min(discountRaw, subtotal);
+  const discountTooHigh = discountRaw > subtotal;
   const total = subtotal - discountNum;
+
+  const canCharge = cajaOpen && cart.length > 0 && total > 0;
 
   function addToCart(p: ProductDTO) {
     if (p.stock <= 0) return;
+    setLastSale(null);
+    setSaleError(null);
     setCart((prev) => {
       const existing = prev.find((i) => i.productId === p.id);
       if (existing) {
+        if (existing.qty >= existing.maxStock) return prev; // no superar stock
         return prev.map((i) =>
           i.productId === p.id ? { ...i, qty: Math.min(i.qty + 1, i.maxStock) } : i
         );
@@ -105,7 +125,27 @@ export default function PosPage() {
     setCart((prev) => prev.filter((i) => i.productId !== productId));
   }
 
+  function clearCart() {
+    if (cart.length === 0) return;
+    if (!window.confirm("¿Vaciar el carrito? Se van a quitar todos los productos.")) return;
+    setCart([]);
+    setDiscount("");
+    searchRef.current?.focus();
+  }
+
+  function openPayment() {
+    setSaleError(null);
+    // Doble chequeo antes de abrir el cobro (la validación real está en el server).
+    if (!cajaOpen) {
+      setSaleError("Para realizar ventas primero tenés que abrir la caja.");
+      return;
+    }
+    if (cart.length === 0 || total <= 0) return;
+    setPayOpen(true);
+  }
+
   async function onConfirmPayment(payments: { method: PaymentMethod; amount: number }[]) {
+    setSaleError(null);
     try {
       const sale = await createSale.mutateAsync({
         items: cart.map((i) => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })),
@@ -115,11 +155,11 @@ export default function PosPage() {
       setPayOpen(false);
       setCart([]);
       setDiscount("");
-      setSuccess(sale.number);
-      setTimeout(() => setSuccess(null), 4000);
+      setLastSale({ id: sale.id, number: sale.number });
       searchRef.current?.focus();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "No se pudo registrar la venta.");
+      setPayOpen(false);
+      setSaleError(e instanceof Error ? e.message : "No se pudo registrar la venta.");
     }
   }
 
@@ -127,12 +167,38 @@ export default function PosPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-5 lg:px-8 lg:py-8">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold text-fg">Vender</h1>
-        {success && (
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-success-soft px-3 py-1.5 text-sm font-semibold text-success">
-            <CheckCircleIcon size={18} weight="fill" /> Venta #{success} registrada
-          </span>
+        {lastSale && (
+          <Link
+            href={`/ticket/${lastSale.id}`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-success-soft px-3 py-1.5 text-sm font-semibold text-success hover:brightness-95"
+          >
+            <CheckCircleIcon size={18} weight="fill" /> Venta #{lastSale.number} · Ver ticket
+          </Link>
         )}
       </div>
+
+      {/* Regla de caja: aviso + bloqueo cuando está cerrada */}
+      {!cajaLoading && !cajaOpen && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3">
+          <span className="flex items-center gap-2 text-sm font-semibold text-warning">
+            <LockIcon size={18} weight="fill" />
+            Para realizar ventas primero tenés que abrir la caja.
+          </span>
+          <Link href="/caja" className="contents">
+            <Button size="sm" variant="secondary">
+              Abrir caja
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Error de venta */}
+      {saleError && (
+        <div className="flex items-start gap-2 rounded-lg border border-danger/40 bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
+          <WarningIcon size={18} weight="fill" className="mt-0.5 shrink-0" />
+          <span>{saleError}</span>
+        </div>
+      )}
 
       {/* Buscador */}
       <div className="relative">
@@ -166,11 +232,12 @@ export default function PosPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-fg">{p.name}</span>
                   <span className="block text-xs text-fg-subtle">
-                    {p.sku ? `${p.sku} · ` : ""}Stock: {p.stock}
+                    {p.sku ? `${p.sku} · ` : ""}
+                    {p.stock <= 0 ? "Sin stock" : `Stock: ${p.stock}`}
                   </span>
                 </span>
                 <span className="tabular font-semibold text-fg">
-                  {formatMoney(p.price, "ARS")}
+                  {formatMoney(p.price, CURRENCY)}
                 </span>
               </button>
             ))}
@@ -185,7 +252,18 @@ export default function PosPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          <ul className="divide-y divide-border">
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
+              {cart.length} {cart.length === 1 ? "producto" : "productos"}
+            </span>
+            <button
+              onClick={clearCart}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-fg-muted hover:bg-danger-soft hover:text-danger"
+            >
+              <TrashIcon size={14} /> Vaciar carrito
+            </button>
+          </div>
+          <ul className="divide-y divide-border border-t border-border">
             {cart.map((i) => (
               <li key={i.productId} className="flex items-center gap-3 px-3 py-3">
                 <div className="min-w-0 flex-1">
@@ -202,9 +280,9 @@ export default function PosPage() {
                         aria-label="Precio unitario"
                       />
                     ) : (
-                      <span className="text-sm text-fg-muted">{formatMoney(i.unitPrice, "ARS")}</span>
+                      <span className="text-sm text-fg-muted">{formatMoney(i.unitPrice, CURRENCY)}</span>
                     )}
-                    {i.qty >= i.maxStock && <Badge tone="warning">Máx</Badge>}
+                    {i.qty >= i.maxStock && <Badge tone="warning">Máx stock</Badge>}
                   </div>
                 </div>
 
@@ -225,15 +303,16 @@ export default function PosPage() {
                   />
                   <button
                     onClick={() => setQty(i.productId, i.qty + 1)}
+                    disabled={i.qty >= i.maxStock}
                     aria-label="Más"
-                    className="grid h-8 w-8 place-items-center rounded-md border border-border-strong text-fg hover:bg-surface-2"
+                    className="grid h-8 w-8 place-items-center rounded-md border border-border-strong text-fg hover:bg-surface-2 disabled:opacity-40"
                   >
                     <PlusIcon size={15} />
                   </button>
                 </div>
 
                 <span className="tabular w-24 text-right font-semibold text-fg">
-                  {formatMoney(i.unitPrice * i.qty, "ARS")}
+                  {formatMoney(i.unitPrice * i.qty, CURRENCY)}
                 </span>
 
                 <button
@@ -251,7 +330,7 @@ export default function PosPage() {
           <div className="border-t border-border p-3">
             <div className="flex items-center justify-between py-1 text-sm text-fg-muted">
               <span>Subtotal</span>
-              <span className="tabular">{formatMoney(subtotal, "ARS")}</span>
+              <span className="tabular">{formatMoney(subtotal, CURRENCY)}</span>
             </div>
             <div className="flex items-center justify-between gap-3 py-1 text-sm">
               <span className="text-fg-muted">Descuento</span>
@@ -263,17 +342,28 @@ export default function PosPage() {
                 className="h-8 w-28 rounded-md border border-border-strong bg-surface px-2 text-right text-sm text-fg focus:border-accent focus:outline-none"
               />
             </div>
+            {discountTooHigh && (
+              <p className="py-1 text-right text-xs font-medium text-warning">
+                El descuento no puede superar el subtotal. Se ajustó a {formatMoney(subtotal, CURRENCY)}.
+              </p>
+            )}
             <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-lg font-bold text-fg">
               <span>Total</span>
-              <span className="tabular">{formatMoney(total, "ARS")}</span>
+              <span className="tabular">{formatMoney(total, CURRENCY)}</span>
             </div>
             <Button
               size="lg"
               className="mt-3 w-full"
-              disabled={cart.length === 0 || total <= 0}
-              onClick={() => setPayOpen(true)}
+              disabled={!canCharge}
+              onClick={openPayment}
             >
-              Cobrar {formatMoney(total, "ARS")}
+              {cajaOpen ? (
+                <>Cobrar {formatMoney(total, CURRENCY)}</>
+              ) : (
+                <>
+                  <LockIcon size={18} /> Abrí la caja para cobrar
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -283,6 +373,7 @@ export default function PosPage() {
         open={payOpen}
         onClose={() => setPayOpen(false)}
         total={total}
+        itemCount={cart.reduce((s, i) => s + i.qty, 0)}
         onConfirm={onConfirmPayment}
         submitting={createSale.isPending}
       />
