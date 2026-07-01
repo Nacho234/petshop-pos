@@ -7,7 +7,6 @@ import {
   LockIcon,
   LockOpenIcon,
   ReceiptIcon,
-  WalletIcon,
 } from "@phosphor-icons/react";
 import { useStore } from "@/lib/store";
 import {
@@ -18,7 +17,7 @@ import {
 } from "@/lib/selectors";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import type { CashMovement, CashSession } from "@/lib/types";
-import { Badge, Button, Card, EmptyState, Field, Input, Modal } from "@/components/ui";
+import { Badge, Button, Card, Field, Input, Modal } from "@/components/ui";
 
 export default function CajaPage() {
   const currency = useCurrency();

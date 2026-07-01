@@ -32,7 +32,6 @@ export default function PosPage() {
   const categories = useCategories();
   const currency = useCurrency();
   const openSession = useOpenSession();
-  const cart = useStore((s) => s.cart);
   const addToCart = useStore((s) => s.addToCart);
   const totals = useCartTotals();
 

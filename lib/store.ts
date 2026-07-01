@@ -282,6 +282,9 @@ export const useStore = create<State>()(
 /** True once the persisted state has been read on the client (avoids SSR mismatch). */
 export function useHydrated(): boolean {
   const [hydrated, setHydrated] = useState(false);
+  // Intentional: render `false` on the client's first pass to match the server
+  // (avoids a hydration mismatch), then flip to `true` after mount.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setHydrated(true), []);
   return hydrated;
 }

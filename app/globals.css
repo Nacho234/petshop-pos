@@ -3,60 +3,60 @@
 /* Dark mode driven by a `.dark` class on <html> (manual toggle + system default) */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ---- Design tokens (light) — marca Zafari ------------------------------- */
+/* ---- Design tokens (light) — blanco/neutro + acento verde Zafari -------- */
 :root {
-  --bg: #faf6ee;           /* cream */
-  --surface: #fffdf8;       /* cards, panels */
-  --surface-2: #f3ecdf;     /* cream-deep / inputs */
-  --border: #e7dfce;        /* line */
-  --border-strong: #d8ccb2;
-  --fg: #23231f;            /* ink */
-  --fg-muted: #5c5b52;      /* ink-soft */
-  --fg-subtle: #928c7c;     /* tertiary / placeholder */
+  --bg: #f6f7f9;           /* app background (casi blanco) */
+  --surface: #ffffff;       /* cards, panels — blanco puro */
+  --surface-2: #f1f3f5;     /* inputs / raised sutil */
+  --border: #e6e8eb;        /* hairlines */
+  --border-strong: #d3d7dd;
+  --fg: #16181d;            /* texto principal (casi negro neutro) */
+  --fg-muted: #565b64;      /* texto secundario */
+  --fg-subtle: #99a0a9;     /* terciario / placeholder */
 
-  --accent: #2e7d5b;        /* leaf green */
-  --accent-hover: #245f47;  /* leaf deep */
+  --accent: #2e7d5b;        /* verde bosque (único acento) */
+  --accent-hover: #256b4d;
   --accent-fg: #ffffff;
-  --accent-soft: #e3f0e8;   /* leaf soft */
+  --accent-soft: #e7f2ec;   /* verde tinte */
 
   --success: #2e7d5b;
-  --success-soft: #e3f0e8;
-  --danger: #c0432f;
-  --danger-soft: #fbeae6;
-  --warning: #b8860b;       /* honey, darkened for AA on cream */
-  --warning-soft: #fbf1d6;
+  --success-soft: #e7f2ec;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
 
   --ring: #2e7d5b;
-  --shadow: 40 25% 45%;     /* warm tinted shadow base (HSL) */
+  --shadow: 220 20% 45%;    /* HSL base para sombras */
 
   --radius: 0.85rem;
 }
 
-/* ---- Design tokens (dark) — Zafari cálido ------------------------------- */
+/* ---- Design tokens (dark) — neutro (zinc/slate) + verde ----------------- */
 .dark {
-  --bg: #17160f;           /* warm near-black */
-  --surface: #211f16;
-  --surface-2: #2c2a1e;
-  --border: #38352a;
-  --border-strong: #4a4636;
-  --fg: #f7f2e6;
-  --fg-muted: #bdb6a1;
-  --fg-subtle: #8a8474;
+  --bg: #0b0d10;           /* near-black neutro */
+  --surface: #14171c;
+  --surface-2: #1c2027;
+  --border: #262b32;
+  --border-strong: #363c45;
+  --fg: #f3f4f6;
+  --fg-muted: #9aa0a8;
+  --fg-subtle: #6b7280;
 
-  --accent: #4aa87c;        /* lighter leaf for dark contrast */
-  --accent-hover: #63bd92;
-  --accent-fg: #0a1a12;
-  --accent-soft: #1d3a2b;
+  --accent: #3fae7d;        /* verde más claro para contraste en dark */
+  --accent-hover: #52c091;
+  --accent-fg: #05140d;
+  --accent-soft: #12271d;
 
-  --success: #4aa87c;
-  --success-soft: #1d3a2b;
-  --danger: #e8806e;
-  --danger-soft: #3d1a13;
-  --warning: #f0c14b;       /* honey */
-  --warning-soft: #3a2f12;
+  --success: #3fae7d;
+  --success-soft: #12271d;
+  --danger: #f87171;
+  --danger-soft: #3a1414;
+  --warning: #fbbf24;
+  --warning-soft: #3a2c0a;
 
-  --ring: #63bd92;
-  --shadow: 40 40% 3%;
+  --ring: #52c091;
+  --shadow: 220 40% 2%;
 }
 
 /* ---- Map tokens into Tailwind's theme so utilities work ------------------ */

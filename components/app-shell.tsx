@@ -13,7 +13,7 @@ import {
 import { useHydrated } from "@/lib/store";
 import { useOpenSession } from "@/lib/selectors";
 import { BusinessBadge } from "./business-badge";
-import { ThemeToggle, useApplyTheme } from "./theme-toggle";
+import { ThemeSwitch, ThemeToggle, useApplyTheme } from "./theme-toggle";
 import { cx } from "./ui";
 
 interface NavItem {
@@ -103,9 +103,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="flex items-center justify-between border-t border-border pt-3">
-          <p className="px-1 text-xs text-fg-subtle">Sin conexión a DB · local</p>
-          <ThemeToggle />
+        <div className="border-t border-border pt-3">
+          <ThemeSwitch />
+          <p className="mt-1 px-1 text-xs text-fg-subtle">Sin conexión a DB · local</p>
         </div>
       </aside>
 
