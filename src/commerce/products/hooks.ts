@@ -10,6 +10,7 @@ import {
 import {
   createProductAction,
   listProductsAction,
+  searchProductsForPosAction,
   setProductActiveAction,
   updateProductAction,
 } from "./actions";
@@ -21,6 +22,14 @@ export function useProducts(params: ProductListParams) {
   return useQuery({
     queryKey: [KEY, params],
     queryFn: () => listProductsAction(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSearchProductsForPos(q: string) {
+  return useQuery({
+    queryKey: ["pos-search", q],
+    queryFn: () => searchProductsForPosAction(q),
     placeholderData: keepPreviousData,
   });
 }
