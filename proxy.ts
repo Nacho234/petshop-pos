@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 // ---------------------------------------------------------------------------
-// Protección de rutas a nivel edge.
+// Proxy (Next 16, ex-middleware): protección de rutas a nivel edge.
 //  - Sin sesión → /login.
 //  - Secciones sólo-admin: el EMPLEADO es redirigido a /pos.
 //
@@ -15,7 +15,7 @@ const ADMIN_ONLY = ["/productos", "/categorias", "/marcas", "/caja", "/reportes"
 
 type SessionResponse = { user?: { role?: string } } | null;
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const res = await fetch(`${request.nextUrl.origin}/api/auth/get-session`, {
     headers: { cookie: request.headers.get("cookie") ?? "" },
     cache: "no-store",
