@@ -19,6 +19,11 @@
       }
     ],
     "paths": {
+      "@/core/*": ["./src/core/*"],
+      "@/commerce/*": ["./src/commerce/*"],
+      "@/modules/*": ["./src/modules/*"],
+      "@/integrations/*": ["./src/integrations/*"],
+      "@/shared/*": ["./src/shared/*"],
       "@/*": ["./*"]
     }
   },
