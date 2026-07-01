@@ -20,7 +20,6 @@ import {
   Input,
   Modal,
   Select,
-  cx,
 } from "@/components/ui";
 
 const LOW_STOCK = 5;
