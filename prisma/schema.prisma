@@ -70,6 +70,8 @@ model Organization {
   sales              Sale[]
   cashSessions       CashSession[]
   inventoryMovements InventoryMovement[]
+  customers          Customer[]
+  pets               Pet[]
 }
 
 // Campos base de Better Auth (name, email, emailVerified, image, timestamps)
@@ -200,6 +202,46 @@ model Supplier {
   @@index([organizationId])
 }
 
+// Cliente (dominio genérico, base para fidelización/CRM). Consumidor final
+// sigue siendo una venta sin customerId.
+model Customer {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  phone          String?
+  email          String?
+  notes          String?
+  points         Int      @default(0) // saldo de puntos de fidelización
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pets         Pet[]
+  sales        Sale[]
+
+  @@index([organizationId, name])
+  @@index([organizationId, phone])
+}
+
+// Mascota (específico del rubro; se relaciona con Customer). Base para
+// cumpleaños y recordatorios.
+model Pet {
+  id             String    @id @default(cuid())
+  organizationId String
+  customerId     String
+  name           String
+  species        String? // perro, gato, etc.
+  breed          String?
+  birthdate      DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, customerId])
+}
+
 model Product {
   id             String   @id @default(cuid())
   organizationId String
@@ -250,6 +292,7 @@ model Sale {
 
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employee           User                @relation(fields: [employeeId], references: [id])
+  customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
   cashSession        CashSession?        @relation(fields: [cashSessionId], references: [id])
   items              SaleItem[]
   payments           Payment[]
@@ -258,6 +301,7 @@ model Sale {
   @@unique([organizationId, number])
   @@index([organizationId, createdAt])
   @@index([organizationId, employeeId])
+  @@index([organizationId, customerId])
 }
 
 model SaleItem {

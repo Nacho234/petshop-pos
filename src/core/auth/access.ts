@@ -13,6 +13,7 @@ export type AppSection =
   | "caja"
   | "reportes"
   | "inventario"
+  | "clientes"
   | "usuarios"
   | "settings";
 
