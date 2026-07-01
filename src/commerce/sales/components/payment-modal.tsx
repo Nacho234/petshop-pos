@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button, Field, Input, Modal, cx } from "@/components/ui";
 import { formatMoney } from "@/lib/format";
@@ -12,36 +12,43 @@ import {
 
 type PaymentLine = { method: PaymentMethod; amount: number };
 
+const EMPTY_AMOUNTS: Record<PaymentMethod, string> = {
+  EFECTIVO: "",
+  DEBITO: "",
+  CREDITO: "",
+  TRANSFERENCIA: "",
+  MERCADO_PAGO: "",
+};
+
 export function PaymentModal({
   open,
   onClose,
   total,
+  itemCount,
   onConfirm,
   submitting,
 }: {
   open: boolean;
   onClose: () => void;
   total: number;
+  itemCount?: number;
   onConfirm: (payments: PaymentLine[]) => void;
   submitting: boolean;
 }) {
   const [mixed, setMixed] = useState(false);
-  const [amounts, setAmounts] = useState<Record<PaymentMethod, string>>({
-    EFECTIVO: "",
-    DEBITO: "",
-    CREDITO: "",
-    TRANSFERENCIA: "",
-    MERCADO_PAGO: "",
-  });
+  const [amounts, setAmounts] = useState<Record<PaymentMethod, string>>(EMPTY_AMOUNTS);
   const [cashReceived, setCashReceived] = useState("");
 
-  useEffect(() => {
+  // Reset al abrir, sin efecto: patrón "ajustar estado en render" de React.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setMixed(false);
-      setAmounts({ EFECTIVO: "", DEBITO: "", CREDITO: "", TRANSFERENCIA: "", MERCADO_PAGO: "" });
+      setAmounts(EMPTY_AMOUNTS);
       setCashReceived("");
     }
-  }, [open]);
+  }
 
   const paid = useMemo(
     () => PAYMENT_METHODS.reduce((s, m) => s + (Number(amounts[m]) || 0), 0),
@@ -97,6 +104,16 @@ export function PaymentModal({
     >
       {!mixed ? (
         <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
+            <span className="text-sm text-fg-muted">
+              {itemCount != null
+                ? `${itemCount} ${itemCount === 1 ? "unidad" : "unidades"} · Total a cobrar`
+                : "Total a cobrar"}
+            </span>
+            <span className="tabular font-display text-lg font-bold text-fg">
+              {formatMoney(total, "ARS")}
+            </span>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {PAYMENT_METHODS.map((m) => (
               <Button

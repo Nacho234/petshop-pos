@@ -105,13 +105,20 @@ export function ProductFormModal({
   });
 
   useEffect(() => {
+    if (open) reset(product ? toFormValues(product) : emptyValues);
+  }, [open, product, reset]);
+
+  // Reset de estado auxiliar al abrir, sin efecto: patrón "ajustar estado en
+  // render" recomendado por React (evita setState dentro de useEffect).
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
-      reset(product ? toFormValues(product) : emptyValues);
       setFormError(null);
       setNewCat("");
       setNewBrand("");
     }
-  }, [open, product, reset]);
+  }
 
   const saving = createProduct.isPending || updateProduct.isPending;
 

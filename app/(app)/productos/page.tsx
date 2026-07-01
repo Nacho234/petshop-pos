@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArchiveIcon,
+  ArrowCounterClockwiseIcon,
   MagnifyingGlassIcon,
   PencilSimpleIcon,
   PlusIcon,
@@ -13,7 +15,7 @@ import { Badge, Button, EmptyState, Select } from "@/components/ui";
 import { formatMoney } from "@/lib/format";
 import { useCategories } from "@/commerce/categories/hooks";
 import { useBrands } from "@/commerce/brands/hooks";
-import { useProducts } from "@/commerce/products/hooks";
+import { useProducts, useSetProductActive } from "@/commerce/products/hooks";
 import type { ProductDTO, ProductSort } from "@/commerce/products/schemas";
 import { ProductFormModal } from "@/commerce/products/components/product-form-modal";
 import { TaxonomyModal } from "@/commerce/products/components/taxonomy-modal";
@@ -57,6 +59,7 @@ export default function ProductsPage() {
   );
 
   const products = useProducts(params);
+  const setActive = useSetProductActive();
   const items = products.data?.items ?? [];
   const total = products.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -68,6 +71,14 @@ export default function ProductsPage() {
   function openEdit(p: ProductDTO) {
     setEditing(p);
     setFormOpen(true);
+  }
+
+  function toggleActive(p: ProductDTO) {
+    const msg = p.active
+      ? `¿Archivar "${p.name}"? No va a aparecer más para vender en el POS (podés reactivarlo después).`
+      : `¿Reactivar "${p.name}"? Va a volver a estar disponible para vender.`;
+    if (!window.confirm(msg)) return;
+    setActive.mutate({ id: p.id, active: !p.active });
   }
 
   return (
@@ -165,8 +176,8 @@ export default function ProductsPage() {
           <div className="hidden grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-border px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle sm:grid">
             <span>Producto</span>
             <span className="w-24 text-right">Precio</span>
-            <span className="w-20 text-right">Stock</span>
-            <span className="w-12 text-right">Editar</span>
+            <span className="w-24 text-right">Stock</span>
+            <span className="w-20 text-right">Acciones</span>
           </div>
           <ul className="divide-y divide-border">
             {items.map((p) => {
@@ -191,22 +202,35 @@ export default function ProductsPage() {
                   <span className="tabular w-24 text-right font-semibold text-fg">
                     {formatMoney(p.price, "ARS")}
                   </span>
-                  <span className="w-20 text-right">
+                  <span className="w-24 text-right">
                     {out ? (
                       <Badge tone="danger">Sin stock</Badge>
                     ) : low ? (
-                      <Badge tone="warning">{p.stock}</Badge>
+                      <Badge tone="warning">Bajo · {p.stock}</Badge>
                     ) : (
                       <span className="tabular text-sm text-fg">{p.stock}</span>
                     )}
                   </span>
-                  <span className="flex w-12 justify-end">
+                  <span className="flex w-20 justify-end gap-1">
                     <button
                       onClick={() => openEdit(p)}
                       aria-label={`Editar ${p.name}`}
                       className="grid h-8 w-8 place-items-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg"
                     >
                       <PencilSimpleIcon size={17} />
+                    </button>
+                    <button
+                      onClick={() => toggleActive(p)}
+                      disabled={setActive.isPending}
+                      aria-label={p.active ? `Archivar ${p.name}` : `Reactivar ${p.name}`}
+                      title={p.active ? "Archivar" : "Reactivar"}
+                      className="grid h-8 w-8 place-items-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg disabled:opacity-40"
+                    >
+                      {p.active ? (
+                        <ArchiveIcon size={17} />
+                      ) : (
+                        <ArrowCounterClockwiseIcon size={17} />
+                      )}
                     </button>
                   </span>
                 </li>

@@ -1,52 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  LockIcon,
-  LockOpenIcon,
-  ReceiptIcon,
-} from "@phosphor-icons/react";
-import { useStore } from "@/lib/store";
-import {
-  computeSessionMetrics,
-  useCurrency,
-  useOpenSession,
-  useSessions,
-} from "@/lib/selectors";
+import { LockIcon, LockOpenIcon } from "@phosphor-icons/react";
+
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
-import type { CashMovement, CashSession } from "@/lib/types";
+import { APP_CONFIG } from "@/shared/config/app";
+import {
+  useCashSession,
+  useCloseCash,
+  useClosedSessions,
+  useOpenCash,
+} from "@/commerce/cash/hooks";
+import type { CashClosedSummaryDTO, CashSessionDTO } from "@/commerce/cash/schemas";
 import { Badge, Button, Card, Field, Input, Modal } from "@/components/ui";
 
-export default function CajaPage() {
-  const currency = useCurrency();
-  const session = useOpenSession();
-  const sessions = useSessions();
-  const movements = useStore((s) => s.cashMovements);
+const CURRENCY = APP_CONFIG.defaultCurrency;
+const onlyAmount = (v: string) => v.replace(/[^\d.]/g, "");
 
-  const openSession = useStore((s) => s.openSession);
-  const closeSession = useStore((s) => s.closeSession);
-  const addMovement = useStore((s) => s.addCashMovement);
+export default function CajaPage() {
+  const { data: session, isLoading, error } = useCashSession();
+  const closed = useClosedSessions();
+
+  const openCash = useOpenCash();
+  const closeCash = useCloseCash();
 
   const [openAmount, setOpenAmount] = useState("");
-  const [mvOpen, setMvOpen] = useState<null | "ingreso" | "egreso">(null);
-  const [mvAmount, setMvAmount] = useState("");
-  const [mvReason, setMvReason] = useState("");
   const [closeOpen, setCloseOpen] = useState(false);
   const [counted, setCounted] = useState("");
   const [closeNote, setCloseNote] = useState("");
 
-  const closed = sessions.filter((s) => s.status === "closed");
-
-  function submitMovement() {
-    const amount = Number(mvAmount) || 0;
-    if (!mvOpen || amount <= 0) return;
-    addMovement(mvOpen, amount, mvReason);
-    setMvAmount("");
-    setMvReason("");
-    setMvOpen(null);
-  }
+  const openingNum = Number(openAmount);
+  const openingValid = openAmount !== "" && Number.isFinite(openingNum) && openingNum >= 0;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-5 lg:px-8 lg:py-8">
@@ -55,22 +39,32 @@ export default function CajaPage() {
         Arqueo y control de efectivo del turno.
       </p>
 
-      {!session ? (
+      {isLoading ? (
+        <p className="py-16 text-center text-sm text-fg-muted">Cargando caja…</p>
+      ) : error ? (
+        <Card className="px-5 py-6">
+          <p className="text-sm text-danger">
+            No se pudo cargar la caja: {(error as Error).message}
+          </p>
+        </Card>
+      ) : !session ? (
         <OpenCard
           value={openAmount}
           onChange={setOpenAmount}
+          valid={openingValid}
+          pending={openCash.isPending}
+          error={openCash.error ? (openCash.error as Error).message : null}
           onOpen={() => {
-            openSession(Number(openAmount) || 0);
-            setOpenAmount("");
+            if (!openingValid) return;
+            openCash.mutate(
+              { openingAmount: openingNum },
+              { onSuccess: () => setOpenAmount("") }
+            );
           }}
         />
       ) : (
         <OpenSessionView
           session={session}
-          movements={movements}
-          currency={currency}
-          onIngreso={() => setMvOpen("ingreso")}
-          onEgreso={() => setMvOpen("egreso")}
           onClose={() => {
             setCounted("");
             setCloseNote("");
@@ -79,97 +73,18 @@ export default function CajaPage() {
         />
       )}
 
-      {closed.length > 0 && (
+      {closed.data && closed.data.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 font-display text-lg font-bold text-fg">
             Cierres anteriores
           </h2>
           <div className="flex flex-col gap-2">
-            {closed.map((s) => {
-              const m = computeSessionMetrics(s, movements);
-              return (
-                <Card key={s.id} className="px-4 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-fg">
-                        {formatDate(s.openedAt)}
-                      </p>
-                      <p className="text-xs text-fg-subtle">
-                        Cerrada {s.closedAt ? formatTime(s.closedAt) : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4 text-right">
-                      <div>
-                        <p className="text-xs text-fg-subtle">Esperado</p>
-                        <p className="tabular text-sm font-semibold text-fg">
-                          {formatMoney(m.expectedCash, currency)}
-                        </p>
-                      </div>
-                      {m.difference != null && (
-                        <Badge
-                          tone={
-                            m.difference === 0
-                              ? "success"
-                              : m.difference > 0
-                                ? "accent"
-                                : "danger"
-                          }
-                        >
-                          {m.difference === 0
-                            ? "Exacto"
-                            : `${m.difference > 0 ? "+" : ""}${formatMoney(m.difference, currency)}`}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+            {closed.data.map((s) => (
+              <ClosedRow key={s.id} session={s} />
+            ))}
           </div>
         </section>
       )}
-
-      {/* Movement modal */}
-      <Modal
-        open={!!mvOpen}
-        onClose={() => setMvOpen(null)}
-        title={mvOpen === "ingreso" ? "Registrar ingreso" : "Registrar egreso"}
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setMvOpen(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={submitMovement} disabled={!(Number(mvAmount) > 0)}>
-              Registrar
-            </Button>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <Field label="Monto" htmlFor="mv-amount" required>
-            <Input
-              id="mv-amount"
-              inputMode="decimal"
-              value={mvAmount}
-              onChange={(e) => setMvAmount(e.target.value.replace(/[^\d.]/g, ""))}
-              placeholder="0"
-              autoFocus
-            />
-          </Field>
-          <Field
-            label="Motivo"
-            htmlFor="mv-reason"
-            hint={mvOpen === "egreso" ? "Ej. pago a proveedor, retiro" : "Ej. aporte de caja"}
-          >
-            <Input
-              id="mv-reason"
-              value={mvReason}
-              onChange={(e) => setMvReason(e.target.value)}
-              placeholder="Motivo"
-            />
-          </Field>
-        </div>
-      </Modal>
 
       {/* Close modal */}
       {session && (
@@ -177,15 +92,18 @@ export default function CajaPage() {
           open={closeOpen}
           onClose={() => setCloseOpen(false)}
           session={session}
-          movements={movements}
-          currency={currency}
           counted={counted}
           setCounted={setCounted}
           note={closeNote}
           setNote={setCloseNote}
+          pending={closeCash.isPending}
+          error={closeCash.error ? (closeCash.error as Error).message : null}
           onConfirm={() => {
-            closeSession(session.id, Number(counted) || 0, closeNote.trim() || undefined);
-            setCloseOpen(false);
+            if (counted === "" || Number(counted) < 0) return;
+            closeCash.mutate(
+              { countedAmount: Number(counted) || 0, note: closeNote.trim() || undefined },
+              { onSuccess: () => setCloseOpen(false) }
+            );
           }}
         />
       )}
@@ -197,10 +115,16 @@ function OpenCard({
   value,
   onChange,
   onOpen,
+  valid,
+  pending,
+  error,
 }: {
   value: string;
   onChange: (v: string) => void;
   onOpen: () => void;
+  valid: boolean;
+  pending: boolean;
+  error: string | null;
 }) {
   return (
     <Card className="px-5 py-6">
@@ -211,7 +135,7 @@ function OpenCard({
         <div>
           <p className="font-display text-lg font-bold text-fg">Caja cerrada</p>
           <p className="text-sm text-fg-muted">
-            Abrí la caja con el efectivo inicial para empezar el turno.
+            Abrí la caja con el efectivo inicial para empezar a vender.
           </p>
         </div>
       </div>
@@ -222,38 +146,28 @@ function OpenCard({
               id="open-amount"
               inputMode="decimal"
               value={value}
-              onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ""))}
+              onChange={(e) => onChange(onlyAmount(e.target.value))}
               placeholder="0"
             />
           </Field>
         </div>
-        <Button size="lg" onClick={onOpen}>
-          <LockOpenIcon size={18} /> Abrir caja
+        <Button size="lg" onClick={onOpen} disabled={!valid || pending}>
+          <LockOpenIcon size={18} /> {pending ? "Abriendo…" : "Abrir caja"}
         </Button>
       </div>
+      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
     </Card>
   );
 }
 
 function OpenSessionView({
   session,
-  movements,
-  currency,
-  onIngreso,
-  onEgreso,
   onClose,
 }: {
-  session: CashSession;
-  movements: CashMovement[];
-  currency: string;
-  onIngreso: () => void;
-  onEgreso: () => void;
+  session: CashSessionDTO;
   onClose: () => void;
 }) {
-  const m = computeSessionMetrics(session, movements);
-  const list = movements
-    .filter((mv) => mv.sessionId === session.id)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const m = session.metrics;
 
   return (
     <div className="flex flex-col gap-4">
@@ -266,76 +180,21 @@ function OpenSessionView({
             desde {formatTime(session.openedAt)}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
-          <Metric label="Fondo inicial" value={formatMoney(session.openingAmount, currency)} />
-          <Metric label="Ventas efectivo" value={formatMoney(m.cashSales, currency)} />
-          <Metric label="Ingresos" value={formatMoney(m.income, currency)} />
-          <Metric label="Egresos" value={formatMoney(m.expense, currency)} />
+        <div className="grid grid-cols-2 gap-px bg-border">
+          <Metric label="Fondo inicial" value={formatMoney(m.openingAmount, CURRENCY)} />
+          <Metric label="Ventas en efectivo" value={formatMoney(m.cashSales, CURRENCY)} />
         </div>
         <div className="flex items-center justify-between px-5 py-4">
           <span className="font-display font-bold text-fg">Efectivo esperado</span>
           <span className="tabular font-display text-2xl font-bold text-fg">
-            {formatMoney(m.expectedCash, currency)}
+            {formatMoney(m.expectedCash, CURRENCY)}
           </span>
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Button variant="secondary" onClick={onIngreso}>
-          <ArrowDownIcon size={18} className="text-success" /> Ingreso
-        </Button>
-        <Button variant="secondary" onClick={onEgreso}>
-          <ArrowUpIcon size={18} className="text-danger" /> Egreso
-        </Button>
-        <Button variant="danger" onClick={onClose} className="col-span-2 sm:col-span-1">
-          <LockIcon size={18} /> Cerrar caja
-        </Button>
-      </div>
-
-      <Card className="px-2 py-2">
-        <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-          Movimientos del turno
-        </p>
-        {list.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-fg-muted">
-            Todavía no hay movimientos.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {list.map((mv) => (
-              <li key={mv.id} className="flex items-center gap-3 px-3 py-2.5">
-                <span
-                  className={`grid h-8 w-8 place-items-center rounded-md ${
-                    mv.type === "egreso"
-                      ? "bg-danger-soft text-danger"
-                      : "bg-success-soft text-success"
-                  }`}
-                >
-                  {mv.type === "venta" ? (
-                    <ReceiptIcon size={16} />
-                  ) : mv.type === "egreso" ? (
-                    <ArrowUpIcon size={16} />
-                  ) : (
-                    <ArrowDownIcon size={16} />
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-fg">{mv.reason}</p>
-                  <p className="text-xs text-fg-subtle">{formatTime(mv.createdAt)}</p>
-                </div>
-                <span
-                  className={`tabular text-sm font-semibold ${
-                    mv.type === "egreso" ? "text-danger" : "text-success"
-                  }`}
-                >
-                  {mv.type === "egreso" ? "-" : "+"}
-                  {formatMoney(mv.amount, currency)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <Button variant="danger" onClick={onClose}>
+        <LockIcon size={18} /> Cerrar caja
+      </Button>
     </div>
   );
 }
@@ -349,32 +208,77 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ClosedRow({ session: s }: { session: CashClosedSummaryDTO }) {
+  return (
+    <Card className="px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-fg">{formatDate(s.openedAt)}</p>
+          <p className="text-xs text-fg-subtle">
+            Cerrada {s.closedAt ? formatTime(s.closedAt) : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-4 text-right">
+          <div>
+            <p className="text-xs text-fg-subtle">Esperado</p>
+            <p className="tabular text-sm font-semibold text-fg">
+              {formatMoney(s.expectedCash, CURRENCY)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-fg-subtle">Contado</p>
+            <p className="tabular text-sm font-semibold text-fg">
+              {s.countedAmount == null ? "—" : formatMoney(s.countedAmount, CURRENCY)}
+            </p>
+          </div>
+          {s.difference != null && (
+            <Badge
+              tone={
+                s.difference === 0
+                  ? "success"
+                  : s.difference > 0
+                    ? "accent"
+                    : "danger"
+              }
+            >
+              {s.difference === 0
+                ? "Exacto"
+                : `${s.difference > 0 ? "+" : ""}${formatMoney(s.difference, CURRENCY)}`}
+            </Badge>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function CloseModal({
   open,
   onClose,
   session,
-  movements,
-  currency,
   counted,
   setCounted,
   note,
   setNote,
   onConfirm,
+  pending,
+  error,
 }: {
   open: boolean;
   onClose: () => void;
-  session: CashSession;
-  movements: CashMovement[];
-  currency: string;
+  session: CashSessionDTO;
   counted: string;
   setCounted: (v: string) => void;
   note: string;
   setNote: (v: string) => void;
   onConfirm: () => void;
+  pending: boolean;
+  error: string | null;
 }) {
-  const m = computeSessionMetrics(session, movements);
+  const expected = session.metrics.expectedCash;
   const countedNum = Number(counted) || 0;
-  const diff = counted === "" ? null : countedNum - m.expectedCash;
+  const diff = counted === "" ? null : countedNum - expected;
+  const canConfirm = counted !== "" && countedNum >= 0 && !pending;
 
   return (
     <Modal
@@ -386,17 +290,20 @@ function CloseModal({
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="danger" onClick={onConfirm}>
-            Cerrar caja
+          <Button variant="danger" onClick={onConfirm} disabled={!canConfirm}>
+            {pending ? "Cerrando…" : "Confirmar cierre"}
           </Button>
         </div>
       }
     >
       <div className="flex flex-col gap-4">
+        <p className="text-sm text-fg-muted">
+          Vas a cerrar el turno actual. Revisá el arqueo antes de confirmar.
+        </p>
         <div className="flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
           <span className="text-sm font-medium text-fg-muted">Efectivo esperado</span>
           <span className="tabular font-display text-lg font-bold text-fg">
-            {formatMoney(m.expectedCash, currency)}
+            {formatMoney(expected, CURRENCY)}
           </span>
         </div>
         <Field label="Efectivo contado" htmlFor="counted" hint="Lo que hay realmente en la caja" required>
@@ -404,7 +311,7 @@ function CloseModal({
             id="counted"
             inputMode="decimal"
             value={counted}
-            onChange={(e) => setCounted(e.target.value.replace(/[^\d.]/g, ""))}
+            onChange={(e) => setCounted(onlyAmount(e.target.value))}
             placeholder="0"
             autoFocus
           />
@@ -424,7 +331,7 @@ function CloseModal({
             </span>
             <span className="tabular font-display font-bold">
               {diff > 0 ? "+" : ""}
-              {formatMoney(diff, currency)}
+              {formatMoney(diff, CURRENCY)}
             </span>
           </div>
         )}
@@ -436,6 +343,7 @@ function CloseModal({
             placeholder="Observaciones del cierre"
           />
         </Field>
+        {error && <p className="text-sm text-danger">{error}</p>}
       </div>
     </Modal>
   );

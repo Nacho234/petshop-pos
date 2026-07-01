@@ -11,7 +11,7 @@ export const productInputSchema = z.object({
   cost: z.coerce.number().min(0, "No puede ser negativo").default(0),
   price: z.coerce.number().min(0, "No puede ser negativo").default(0),
   taxRate: z.coerce.number().min(0).max(100).default(21),
-  stock: z.coerce.number().int().default(0),
+  stock: z.coerce.number().int().min(0, "No puede ser negativo").default(0),
   minStock: z.coerce.number().int().min(0).default(0),
   active: z.boolean().default(true),
   imageUrl: z.string().trim().url("URL inválida").optional().or(z.literal("")),
