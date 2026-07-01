@@ -118,3 +118,15 @@ export async function setProductActive(id: string, active: boolean): Promise<voi
   const ok = await (await repo()).setActive(id, active);
   if (!ok) throw new Error("Producto no encontrado");
 }
+
+// Búsqueda liviana para el POS: sólo productos activos.
+export async function searchProducts(q: string): Promise<ProductDTO[]> {
+  const res = await listProducts({
+    q: q.trim() || undefined,
+    active: true,
+    page: 1,
+    pageSize: 20,
+    sort: "name",
+  });
+  return res.items;
+}

@@ -23,3 +23,9 @@ export async function setProductActiveAction(id: string, active: boolean) {
   await assertAccess("productos");
   return service.setProductActive(id, active);
 }
+
+// Búsqueda para el POS: permitida a ADMIN y EMPLEADO (sección "pos").
+export async function searchProductsForPosAction(q: string) {
+  await assertAccess("pos");
+  return service.searchProducts(q);
+}
