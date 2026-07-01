@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
+  AddressBookIcon,
   ChartBarIcon,
   GearSixIcon,
   PackageIcon,
@@ -43,6 +44,7 @@ const NAV: NavItem[] = [
   { href: "/inventario", label: "Inventario", icon: PackageIcon, section: "inventario" },
   { href: "/caja", label: "Caja", icon: WalletIcon, section: "caja" },
   { href: "/reportes", label: "Reportes", icon: ChartBarIcon, section: "reportes" },
+  { href: "/clientes", label: "Clientes", icon: AddressBookIcon, section: "clientes" },
   { href: "/usuarios", label: "Usuarios", icon: UsersIcon, section: "usuarios" },
   { href: "/ajustes", label: "Ajustes", icon: GearSixIcon, section: "settings" },
 ];
