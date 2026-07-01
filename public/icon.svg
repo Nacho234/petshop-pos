@@ -1,0 +1,10 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Caja">
+  <rect width="512" height="512" rx="112" fill="#2563EB"/>
+  <!-- Receipt / ticket glyph -->
+  <path d="M160 120h192a16 16 0 0 1 16 16v248a8 8 0 0 1-12.4 6.7L328 366l-27.6 20.7a8 8 0 0 1-9.6 0L256 366l-34.8 20.7a8 8 0 0 1-9.6 0L184 366l-27.6 20.7A8 8 0 0 1 144 380V136a16 16 0 0 1 16-16Z" fill="#ffffff"/>
+  <g stroke="#2563EB" stroke-width="18" stroke-linecap="round">
+    <path d="M186 178h140"/>
+    <path d="M186 224h140"/>
+    <path d="M186 270h84"/>
+  </g>
+</svg>

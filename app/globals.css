@@ -1,26 +1,146 @@
 @import "tailwindcss";
 
+/* Dark mode driven by a `.dark` class on <html> (manual toggle + system default) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---- Design tokens (light) ---------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f1f5f9;          /* app background (slate-100) */
+  --surface: #ffffff;      /* cards, panels */
+  --surface-2: #f8fafc;    /* subtle raised / inputs */
+  --border: #e2e8f0;       /* hairlines */
+  --border-strong: #cbd5e1;
+  --fg: #0f172a;           /* primary text (slate-900) */
+  --fg-muted: #475569;     /* secondary text (slate-600) */
+  --fg-subtle: #94a3b8;    /* tertiary / placeholder */
+
+  --accent: #2563eb;       /* single brand accent (blue-600) */
+  --accent-hover: #1d4ed8;
+  --accent-fg: #ffffff;
+  --accent-soft: #eff6ff;  /* tinted background */
+
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+
+  --ring: #2563eb;
+  --shadow: 220 20% 40%;   /* HSL base for tinted shadows */
+
+  --radius: 0.75rem;
 }
 
+/* ---- Design tokens (dark) ----------------------------------------------- */
+.dark {
+  --bg: #020617;           /* slate-950 */
+  --surface: #0f172a;      /* slate-900 */
+  --surface-2: #1e293b;    /* slate-800 */
+  --border: #1e293b;
+  --border-strong: #334155;
+  --fg: #f1f5f9;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-fg: #06121f;
+  --accent-soft: #172554;
+
+  --success: #22c55e;
+  --success-soft: #052e16;
+  --danger: #f87171;
+  --danger-soft: #450a0a;
+  --warning: #f59e0b;
+  --warning-soft: #451a03;
+
+  --ring: #60a5fa;
+  --shadow: 220 60% 2%;
+}
+
+/* ---- Map tokens into Tailwind's theme so utilities work ------------------ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-rubik), var(--font-nunito), ui-sans-serif, sans-serif;
+
+  --radius-lg: var(--radius);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ---- Base -------------------------------------------------------------- */
+* {
+  border-color: var(--border);
+}
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* Tabular figures for money/quantities so columns don't jitter */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Visible, consistent focus ring */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Respect reduced motion globally */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Thin, unobtrusive scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
 }

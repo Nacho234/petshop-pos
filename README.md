@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Caja · Punto de venta (PWA, multinegocio)
 
-## Getting Started
+Sistema de punto de venta reutilizable. **Es multitenant**: una sola app / un solo
+deploy atiende varios negocios (kiosco, bazar, pet shop, etc.). Cada negocio es un
+"tenant" con sus propios productos, ventas y caja. Para usarlo con otro negocio
+**no se copia el código**: se agrega un negocio nuevo desde el selector.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router) + TypeScript
+- Tailwind CSS v4 (tokens propios, light/dark)
+- Zustand con persistencia en `localStorage`
+- PWA (manifest + service worker, instalable, offline básico)
+
+## Features
+
+- **Vender** (`/pos`): búsqueda + categorías, carrito, descuento, cobro en efectivo
+  (con vuelto), tarjeta o transferencia, descuento de stock y numeración de tickets.
+- **Ticket** (`/ticket/[id]`): comprobante imprimible.
+- **Productos** (`/productos`): alta/edición/archivado, categorías, control de stock.
+- **Caja** (`/caja`): apertura/cierre de turno, ingresos/egresos, arqueo (esperado vs contado).
+- **Reportes** (`/reportes`): KPIs, ventas por día, medios de pago, más vendidos.
+
+## Desarrollo
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm run build      # build de producción
+npm start          # sirve el build (el service worker solo corre en producción)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Datos y persistencia
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Hoy todo se guarda en el navegador (`localStorage`), scopeado por `businessId`.
+No hay backend: los datos son por dispositivo.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Para uso real (persistencia + varios dispositivos) el siguiente paso es conectar
+**Supabase**. El punto de enganche y el esquema sugerido (tablas + RLS por
+`business_id`) están documentados en [`lib/repository.ts`](lib/repository.ts).
 
-## Learn More
+## Estructura
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+app/(app)/        páginas con el shell (pos, productos, caja, reportes)
+app/ticket/       comprobante imprimible (sin shell)
+components/       UI kit, shell, selector de negocio, tema
+lib/              tipos, store (Zustand), selectores, datos semilla, repositorio
+```
