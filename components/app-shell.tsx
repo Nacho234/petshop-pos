@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import {
   ChartBarIcon,
   GearSixIcon,
+  PackageIcon,
   ReceiptIcon,
   ShoppingCartIcon,
   SignOutIcon,
@@ -39,6 +40,7 @@ const NAV: NavItem[] = [
   { href: "/pos", label: "Vender", icon: ShoppingCartIcon, section: "pos" },
   { href: "/ventas", label: "Ventas", icon: ReceiptIcon, section: "ventas" },
   { href: "/productos", label: "Productos", icon: TagIcon, section: "productos" },
+  { href: "/inventario", label: "Inventario", icon: PackageIcon, section: "inventario" },
   { href: "/caja", label: "Caja", icon: WalletIcon, section: "caja" },
   { href: "/reportes", label: "Reportes", icon: ChartBarIcon, section: "reportes" },
   { href: "/usuarios", label: "Usuarios", icon: UsersIcon, section: "usuarios" },

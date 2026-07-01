@@ -11,7 +11,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // validan.
 // ---------------------------------------------------------------------------
 
-const ADMIN_ONLY = ["/productos", "/categorias", "/marcas", "/caja", "/reportes", "/dashboard"];
+const ADMIN_ONLY = ["/productos", "/categorias", "/marcas", "/caja", "/reportes", "/inventario", "/dashboard"];
 
 type SessionResponse = { user?: { role?: string } } | null;
 
@@ -45,6 +45,7 @@ export const config = {
     "/marcas/:path*",
     "/caja/:path*",
     "/reportes/:path*",
+    "/inventario/:path*",
     "/dashboard/:path*",
   ],
 };
